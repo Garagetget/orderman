@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(Move-Item \"D:\\\\Work\\\\Fastwork\\\\_orderman_BACKLOG.bak\" \"D:\\\\Work\\\\Fastwork\\\\orderman\\\\BACKLOG.md\" -Force)"
-    ]
-  }
-}
