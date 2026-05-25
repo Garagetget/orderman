@@ -12,7 +12,7 @@
 
 ## Features (Phase 1 — MVP)
 
-- 🔐 เข้าสู่ระบบด้วย Supabase Auth (email/password) + ป้องกัน route ด้วย middleware
+- 🔐 เข้าสู่ระบบด้วย Supabase Auth (email/password) + ป้องกัน route ด้วย `proxy.ts` (Next.js 16)
 - 📝 หน้าจดออเดอร์ — เลือกเมนู → ปรับจำนวน → บันทึก
 - 📊 Dashboard — สรุปยอดขาย วัน/สัปดาห์/เดือน/ปี + กราฟแท่ง
 
@@ -73,6 +73,44 @@ npm run dev
 เปิด [http://localhost:3000](http://localhost:3000) → จะถูก redirect ไปหน้า
 `/login` → เข้าสู่ระบบด้วย user ที่สร้างไว้ในขั้นตอนที่ 4
 
+## Deploy to Vercel
+
+> ⚠️ ถ้า deploy แล้วขึ้น **Internal Server Error** ทุกหน้า — แทบทุกครั้งเกิดจาก
+> ยังไม่ได้ตั้ง env vars บน Vercel ทำให้ `proxy.ts` throw ทุก request
+
+### 1. Import โปรเจกต์เข้า Vercel
+
+ผูก GitHub repo เข้า Vercel ตามปกติ — Vercel จะ detect Next.js ให้เอง
+ไม่ต้องตั้ง build command หรือ output directory เพิ่ม
+
+### 2. ตั้ง environment variables
+
+**Project Settings → Environment Variables** เพิ่มสองตัวนี้ (ติ๊กครบทั้ง
+*Production*, *Preview*, *Development*):
+
+| ตัวแปร | ค่า |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL จาก Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon / public key จาก Supabase |
+
+> ⚠️ ห้ามใส่ `service_role` key เด็ดขาด — มันจะ bypass RLS และหลุดไป browser
+
+### 3. Redeploy
+
+หลังตั้ง env vars ต้องสั่ง **Redeploy** ครั้งใหม่ (Deployments → … → Redeploy)
+เพราะ Vercel ไม่ inject env vars เข้า deployment ที่ build ไปแล้ว
+
+### 4. ตั้งค่า Supabase Auth URLs
+
+เพื่อให้ login บน production ทำงานถูกต้อง:
+
+**Supabase Dashboard → Authentication → URL Configuration**
+- *Site URL*: `https://<your-app>.vercel.app`
+- *Redirect URLs*: เพิ่ม `https://<your-app>.vercel.app/**`
+
+(ถ้ามี Vercel preview URLs ที่ใช้ login ด้วย ก็เพิ่ม pattern ของ
+`https://<your-app>-*.vercel.app/**` เข้าไปอีกหนึ่ง entry)
+
 ## Project structure
 
 ```
@@ -87,11 +125,11 @@ components/
   ui/                 # shadcn/ui components
   *.tsx               # menu-grid, order-cart, sales-chart ฯลฯ
 lib/
-  supabase/           # Supabase clients (browser / server / middleware)
+  supabase/           # Supabase helpers (client / server / proxy / env)
   database.types.ts   # TypeScript types ของ DB schema
   sales.ts            # ฟังก์ชันรวมยอดขาย
   format.ts           # จัดรูปแบบเงินบาท
-middleware.ts         # auth gate ทุก request
+proxy.ts              # auth gate ทุก request (Next.js 16 — เดิมชื่อ middleware.ts)
 supabase/schema.sql   # DB schema — รันใน Supabase SQL editor
 ```
 

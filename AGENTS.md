@@ -21,17 +21,25 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Project structure
 - `app/login/` — login page (unauthenticated)
 - `app/(app)/` — protected route group (auth-gated layout + nav shell)
-  - `order/` — order-taking page + server action
-  - `dashboard/` — sales summary page
+  - `order/page.tsx` — order-taking page (server component → `order-taker` container)
+  - `order/actions.ts` — `createOrder` server action (calls the `create_order()` RPC)
+  - `dashboard/page.tsx` — sales summary page (server component → `dashboard-view` container)
 - `app/auth/actions.ts` — `login` / `signOut` server actions
-- `proxy.ts` — Next.js 16 auth gate (was `middleware.ts` in older versions)
-- `components/` — feature components (`menu-grid`, `order-cart`, `sales-chart`, …)
+- `proxy.ts` — Next.js 16 auth gate (was `middleware.ts` in older versions). Delegates to `lib/supabase/proxy.ts#updateSession`
+- `components/` — feature components
+  - Containers (`"use client"`, wire actions to UI): `order-taker.tsx`, `dashboard-view.tsx`
+  - Presentational: `menu-grid.tsx`, `order-cart.tsx`, `sales-cards.tsx`, `sales-chart.tsx`, `app-nav.tsx`
 - `components/ui/` — shadcn components (don't edit manually unless asked)
-- `lib/supabase/` — Supabase clients: `browser.ts`, `server.ts`, `proxy.ts`, `env.ts`
+- `lib/supabase/` — Supabase helpers: `client.ts` (browser), `server.ts` (RSC/actions), `proxy.ts` (session refresh in auth gate), `env.ts` (lazy env validation)
 - `lib/sales.ts` — sales aggregation in fixed Bangkok time (UTC+7)
 - `lib/format.ts` — Thai baht formatter
 - `lib/database.types.ts` — generated DB types
 - `supabase/schema.sql` — full DB schema, RLS policies, `create_order()` RPC, demo seed
+
+## Scripts
+- `npm run dev` — Next.js dev server (Turbopack)
+- `npm run lint` — ESLint (must pass clean before commit)
+- `npm run build` — production build (must pass clean before commit)
 
 ## Data & security model (non-negotiable)
 - **RLS is on for every table.** Anonymous clients see nothing. Don't write queries that assume open access.

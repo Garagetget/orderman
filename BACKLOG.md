@@ -62,7 +62,7 @@ See [`README.md`](README.md) for full setup steps.
 
 ### Notable implementation details vs. original plan
 - Added **proxy.ts** (was `middleware.ts`) — Next.js 16 renamed the convention.
-- Added helper files not in the original file list: `lib/supabase/env.ts`, `lib/format.ts`, `components/order-taker.tsx`, `components/dashboard-view.tsx` — small, single-purpose, kept the listed components presentational.
+- Added helper files not in the original file list: `lib/supabase/env.ts`, `lib/format.ts`, `components/order-taker.tsx`, `components/dashboard-view.tsx`, `components/sales-cards.tsx`, `components/app-nav.tsx` — small, single-purpose, kept the listed components presentational.
 - shadcn/ui installed as the new **base-nova** style (built on Base UI, not Radix). The `Button` has no `asChild` prop — nav links use `buttonVariants()` on `<Link>` instead.
 
 ### Phase 2 ideas (not started)
