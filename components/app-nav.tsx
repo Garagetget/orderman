@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { ClipboardList, LayoutDashboard, LogOut } from "lucide-react";
+import { ClipboardList, History, LayoutDashboard, LogOut } from "lucide-react";
 
 import { signOut } from "@/app/auth/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 const LINKS = [
   { href: "/order", label: "จดออเดอร์", icon: ClipboardList },
+  { href: "/order-history", label: "ประวัติ", icon: History },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 ] as const;
 
