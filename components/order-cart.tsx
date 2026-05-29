@@ -1,6 +1,6 @@
 "use client";
 
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -50,9 +50,10 @@ export function OrderCart({
 
       <CardContent className="space-y-4">
         {isEmpty ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            ยังไม่มีรายการ — แตะเมนูเพื่อเพิ่ม
-          </p>
+          <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+            <ShoppingCart className="size-8 opacity-40" />
+            <p className="text-center text-sm">ยังไม่มีรายการ — แตะเมนูเพื่อเพิ่ม</p>
+          </div>
         ) : (
           <ul className="space-y-3">
             {lines.map(({ menu, quantity }) => (
@@ -124,7 +125,7 @@ export function OrderCart({
         <Separator />
         <div className="flex w-full items-center justify-between">
           <span className="text-sm text-muted-foreground">ยอดรวม</span>
-          <span className="text-xl font-bold tabular-nums">
+          <span className="text-xl font-bold tabular-nums text-primary">
             {formatBaht(total)}
           </span>
         </div>

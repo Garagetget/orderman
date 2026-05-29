@@ -20,10 +20,10 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+    <main className="flex min-h-svh items-center justify-center bg-gradient-to-br from-primary/5 to-muted/60 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">orderman</CardTitle>
+          <CardTitle className="text-2xl text-primary">orderman</CardTitle>
           <CardDescription>เข้าสู่ระบบเพื่อจัดการออเดอร์</CardDescription>
         </CardHeader>
         <CardContent>

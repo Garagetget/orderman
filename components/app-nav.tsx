@@ -19,7 +19,7 @@ export function AppNav({ userEmail }: { userEmail: string }) {
   return (
     <header className="border-b bg-background">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-1 px-4">
-        <span className="mr-3 text-lg font-bold sm:mr-5">orderman</span>
+        <span className="mr-3 text-lg font-bold text-primary sm:mr-5">orderman</span>
 
         <nav className="flex items-center gap-1">
           {LINKS.map(({ href, label, icon: Icon }) => {
