@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-05-31 (T12 done)
+> Last updated: 2026-06-01 (T12 done + pushed)
 
 ---
 
@@ -49,9 +49,11 @@ _(none)_
   - [x] กดยกเลิกออเดอร์แล้ว status เปลี่ยนเป็น `cancelled` ในฐานข้อมูล
   - [x] ออเดอร์ที่ cancelled ไม่นับใน dashboard (dashboard กรอง `status = 'completed'` อยู่แล้ว)
   - [x] แก้ไข quantity ของ item ใน order แล้ว `order_items` อัปเดตถูกต้อง
+  - [x] ลบรายการทั้งบรรทัดออกจากออเดอร์ได้ (เก็บไว้อย่างน้อย 1 รายการ)
   - [x] ยืนยันก่อนยกเลิก (inline 2-step confirm) ป้องกันกด cancel โดยไม่ตั้งใจ
   - [x] action เป็น server action (`cancelOrder` / `updateOrderItems`)
-- **Notes:** total คำนวณใหม่ server-side ผ่าน `update_order_items()` RPC จาก snapshot price — client ส่งแค่ `item_id` + `quantity` (ราคาแก้จาก client ไม่ได้). ออเดอร์ที่ cancelled แก้ไม่ได้ (RPC reject + UI ซ่อนปุ่ม).
+- **Notes:** total คำนวณใหม่ server-side ผ่าน `update_order_items()` RPC จาก snapshot price — client ส่งแค่ `item_id` + `quantity` (ราคาแก้จาก client ไม่ได้). RPC sync รายการ: บรรทัดที่ client ตัดออกจะถูกลบ. ออเดอร์ที่ cancelled แก้ไม่ได้ (RPC reject + UI ซ่อนปุ่ม). ออเดอร์ว่าง (0 รายการ) ถูกบล็อก — ให้ใช้ "ยกเลิกออเดอร์" แทน.
+- **PR:** branch `feat/t12-edit-cancel-order` (รอ merge เข้า master). ⚠️ ต้องรัน `supabase/schema.sql` ใหม่หลัง merge เพื่อสร้าง RPC.
 
 ### T13 — จัดการเมนู (Menu Management UI)
 - **Priority:** P1 · **Size:** L · **Status:** Todo · **Depends on:** —
