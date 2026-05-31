@@ -5,15 +5,33 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-05-31
+> Last updated: 2026-05-31 (T11 merged into main)
 
 ---
 
 ## In Progress
 
+_(none)_
+
+---
+
+## To Do
+
+### Phase 2 — Post-MVP Features
+
+- [x] **T11** ดูประวัติออเดอร์
+- [ ] **T12** แก้ไข/ยกเลิกออเดอร์ _(depends on T11)_
+- [ ] **T13** จัดการเมนู (Menu Management UI)
+- [ ] **T14** ยอดขายรายเมนูบน Dashboard
+- [ ] **T15** พิมพ์ใบเสร็จ _(depends on T11)_
+- [ ] **T16** สิทธิ์ผู้ใช้ (Owner vs. Staff)
+
+---
+
+## Phase 2 — Post-MVP Features
+
 ### T11 — ดูประวัติออเดอร์
-- **Priority:** P1 · **Size:** M · **Status:** In Progress · **Depends on:** —
-- **Branch:** `feat/T11-order-history` — implemented (order history page + expandable item details), not yet merged into `main`
+- **Priority:** P1 · **Size:** M · **Status:** Done · **Depends on:** —
 - **Acceptance:**
   - [ ] มีหน้า `/order-history` ใน protected route group
   - [ ] แสดงออเดอร์ทุกรายการ: เลขออเดอร์, วันเวลา, จำนวนรายการ, ยอดรวม, status
