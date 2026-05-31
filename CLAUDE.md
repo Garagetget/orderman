@@ -51,7 +51,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Conventions specific to this project
 - Component files: kebab-case (`menu-grid.tsx`, `sales-chart.tsx`)
 - React Server Components by default; `"use client"` only when needed (interactivity, hooks, Recharts)
-- Menu categories are a fixed enum: `เครื่องดื่ม` and `อาหาร` — keep Thai strings as-is, don't translate to English
+- Menu categories are a fixed enum: `อาหาร`, `เครื่องดื่ม`, and `ของเพิ่ม` — keep Thai strings as-is, don't translate to English
 - Order status defaults to `'completed'` — no pending/cancelled flow in Phase 1
 - IDs in [BACKLOG.md](BACKLOG.md) are stable (`T1`, `T2`, …) — never reuse, even after deletion
 - Use `buttonVariants()` on `<Link>` for nav links — the base-nova `Button` has no `asChild` prop

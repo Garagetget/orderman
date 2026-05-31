@@ -90,7 +90,14 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                   <tbody>
                     {order.order_items.map((item) => (
                       <tr key={item.id} className="border-t first:border-t-0">
-                        <td className="py-1.5">{item.menus?.name ?? "—"}</td>
+                        <td className="py-1.5">
+                          {item.menus?.name ?? "—"}
+                          {item.is_special && (
+                            <span className="ml-1 text-xs font-medium text-primary">
+                              (พิเศษ)
+                            </span>
+                          )}
+                        </td>
                         <td className="py-1.5 text-right">{item.quantity}</td>
                         <td className="py-1.5 text-right">
                           {formatBaht(item.price)}

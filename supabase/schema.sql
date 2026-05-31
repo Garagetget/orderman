@@ -8,12 +8,24 @@
 -- ---------- Tables ----------
 
 create table if not exists public.menus (
-  id            uuid primary key default gen_random_uuid(),
-  name          text not null unique,
-  price         numeric(10, 2) not null check (price >= 0),
-  category      text not null check (category in ('อาหาร', 'เครื่องดื่ม')),
-  is_available  boolean not null default true
+  id                uuid primary key default gen_random_uuid(),
+  name              text not null unique,
+  price             numeric(10, 2) not null check (price >= 0),
+  category          text not null check (category in ('อาหาร', 'เครื่องดื่ม', 'ของเพิ่ม')),
+  is_available      boolean not null default true,
+  -- Extra charge for the "พิเศษ" (extra portion) variant.
+  -- NULL = this menu has no พิเศษ option.
+  special_surcharge numeric(10, 2) check (special_surcharge > 0)
 );
+
+-- Idempotent upgrade for databases created before special_surcharge existed.
+alter table public.menus
+  add column if not exists special_surcharge numeric(10, 2) check (special_surcharge > 0);
+
+-- Idempotent upgrade for the category CHECK (added the 'ของเพิ่ม' bucket).
+alter table public.menus drop constraint if exists menus_category_check;
+alter table public.menus add constraint menus_category_check
+  check (category in ('อาหาร', 'เครื่องดื่ม', 'ของเพิ่ม'));
 
 create table if not exists public.orders (
   id          uuid primary key default gen_random_uuid(),
@@ -25,12 +37,18 @@ create table if not exists public.orders (
 );
 
 create table if not exists public.order_items (
-  id        uuid primary key default gen_random_uuid(),
-  order_id  uuid not null references public.orders(id) on delete cascade,
-  menu_id   uuid not null references public.menus(id),
-  quantity  integer not null check (quantity > 0),
-  price     numeric(10, 2) not null check (price >= 0)
+  id          uuid primary key default gen_random_uuid(),
+  order_id    uuid not null references public.orders(id) on delete cascade,
+  menu_id     uuid not null references public.menus(id),
+  quantity    integer not null check (quantity > 0),
+  -- Charged price per unit, surcharge included when is_special is true.
+  price       numeric(10, 2) not null check (price >= 0),
+  is_special  boolean not null default false
 );
+
+-- Idempotent upgrade for databases created before is_special existed.
+alter table public.order_items
+  add column if not exists is_special boolean not null default false;
 
 create index if not exists order_items_order_id_idx on public.order_items(order_id);
 create index if not exists order_items_menu_id_idx  on public.order_items(menu_id);
@@ -64,7 +82,8 @@ create policy "authenticated full access" on public.order_items
 -- Inserts one order + N order_items atomically in a single transaction.
 -- Each line price is snapshotted from the menus table SERVER-SIDE, so a
 -- tampered client payload cannot change what the customer is charged.
--- p_items: jsonb array of objects { "menu_id": <uuid>, "quantity": <int> }
+-- p_items: jsonb array of objects
+--   { "menu_id": <uuid>, "quantity": <int>, "is_special": <bool, optional> }
 
 create or replace function public.create_order(p_note text, p_items jsonb)
 returns uuid
@@ -72,12 +91,14 @@ language plpgsql
 security invoker
 as $$
 declare
-  v_order_id uuid;
-  v_total    numeric(10, 2) := 0;
-  v_item     jsonb;
-  v_menu_id  uuid;
-  v_qty      integer;
-  v_price    numeric(10, 2);
+  v_order_id   uuid;
+  v_total      numeric(10, 2) := 0;
+  v_item       jsonb;
+  v_menu_id    uuid;
+  v_qty        integer;
+  v_is_special boolean;
+  v_price      numeric(10, 2);
+  v_surcharge  numeric(10, 2);
 begin
   if p_items is null
      or jsonb_typeof(p_items) <> 'array'
@@ -91,15 +112,16 @@ begin
 
   for v_item in select * from jsonb_array_elements(p_items)
   loop
-    v_menu_id := (v_item ->> 'menu_id')::uuid;
-    v_qty     := (v_item ->> 'quantity')::integer;
+    v_menu_id    := (v_item ->> 'menu_id')::uuid;
+    v_qty        := (v_item ->> 'quantity')::integer;
+    v_is_special := coalesce((v_item ->> 'is_special')::boolean, false);
 
     if v_qty is null or v_qty < 1 then
       raise exception 'Invalid quantity for menu %', v_menu_id;
     end if;
 
-    -- Trust the database, not the client, for the price.
-    select price into v_price
+    -- Trust the database, not the client, for both price and surcharge.
+    select price, special_surcharge into v_price, v_surcharge
     from public.menus
     where id = v_menu_id and is_available = true;
 
@@ -107,8 +129,15 @@ begin
       raise exception 'Menu % not found or unavailable', v_menu_id;
     end if;
 
-    insert into public.order_items (order_id, menu_id, quantity, price)
-    values (v_order_id, v_menu_id, v_qty, v_price);
+    if v_is_special then
+      if v_surcharge is null then
+        raise exception 'Menu % has no พิเศษ option', v_menu_id;
+      end if;
+      v_price := v_price + v_surcharge;
+    end if;
+
+    insert into public.order_items (order_id, menu_id, quantity, price, is_special)
+    values (v_order_id, v_menu_id, v_qty, v_price, v_is_special);
 
     v_total := v_total + v_price * v_qty;
   end loop;
@@ -121,15 +150,29 @@ $$;
 
 grant execute on function public.create_order(text, jsonb) to authenticated;
 
--- ---------- Demo menu seed ----------
+-- ---------- Menu seed ----------
+-- Remove the old demo menu. Safe to re-run and on fresh installs (matches
+-- nothing). Won't hit a FK error as long as no saved order references these
+-- rows — if it does, run `truncate public.orders, public.order_items;` once
+-- first (clears all order history).
+delete from public.menus
+ where name in (
+   'ชาไข่มุก', 'ราดหน้า', 'ผัดไทย', 'ข้าวผัด',
+   'ส้มตำ', 'น้ำเต้าหู้', 'ชาเย็น', 'กาแฟเย็น'
+ );
 
-insert into public.menus (name, price, category) values
-  ('ชาไข่มุก',    35, 'เครื่องดื่ม'),
-  ('ราดหน้า',     60, 'อาหาร'),
-  ('ผัดไทย',      60, 'อาหาร'),
-  ('ข้าวผัด',     55, 'อาหาร'),
-  ('ส้มตำ',       50, 'อาหาร'),
-  ('น้ำเต้าหู้',   25, 'เครื่องดื่ม'),
-  ('ชาเย็น',      30, 'เครื่องดื่ม'),
-  ('กาแฟเย็น',    35, 'เครื่องดื่ม')
-on conflict (name) do nothing;
+-- Real menu. special_surcharge = NULL means the item has no พิเศษ option.
+insert into public.menus (name, price, category, special_surcharge) values
+  ('ขนมจีนน้ำยากะทิ',     50, 'อาหาร', 10),
+  ('ขนมจีนแกงเขียวหวาน',  50, 'อาหาร', 10),
+  ('ขนมจีนน้ำยาป่า',      50, 'อาหาร', 10),
+  ('ขนมจีนน้ำยาผสม',      50, 'อาหาร', 10),
+  ('ก๋วยจั๊บญวน',         60, 'อาหาร',   10),
+  ('เพิ่มขาไก่',          10, 'ของเพิ่ม', null),
+  ('เพิ่มลูกชิ้น',        10, 'ของเพิ่ม', null),
+  ('ไข่ต้ม',              10, 'ของเพิ่ม', null),
+  ('ขนมจีน',               5, 'ของเพิ่ม', null)
+on conflict (name) do update set
+  price             = excluded.price,
+  category          = excluded.category,
+  special_surcharge = excluded.special_surcharge;

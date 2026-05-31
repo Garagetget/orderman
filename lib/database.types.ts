@@ -9,7 +9,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type MenuCategory = "อาหาร" | "เครื่องดื่ม";
+export type MenuCategory = "อาหาร" | "เครื่องดื่ม" | "ของเพิ่ม";
 export type OrderStatus = "completed" | "pending" | "cancelled";
 
 export type Database = {
@@ -22,6 +22,7 @@ export type Database = {
           price: number;
           category: MenuCategory;
           is_available: boolean;
+          special_surcharge: number | null;
         };
         Insert: {
           id?: string;
@@ -29,6 +30,7 @@ export type Database = {
           price: number;
           category: MenuCategory;
           is_available?: boolean;
+          special_surcharge?: number | null;
         };
         Update: {
           id?: string;
@@ -36,6 +38,7 @@ export type Database = {
           price?: number;
           category?: MenuCategory;
           is_available?: boolean;
+          special_surcharge?: number | null;
         };
         Relationships: [];
       };
@@ -70,6 +73,7 @@ export type Database = {
           menu_id: string;
           quantity: number;
           price: number;
+          is_special: boolean;
         };
         Insert: {
           id?: string;
@@ -77,6 +81,7 @@ export type Database = {
           menu_id: string;
           quantity: number;
           price: number;
+          is_special?: boolean;
         };
         Update: {
           id?: string;
@@ -84,6 +89,7 @@ export type Database = {
           menu_id?: string;
           quantity?: number;
           price?: number;
+          is_special?: boolean;
         };
         Relationships: [
           {

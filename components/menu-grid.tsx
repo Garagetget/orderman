@@ -3,12 +3,12 @@
 import type { Menu, MenuCategory } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
 
-// Render order for the two fixed categories.
-const CATEGORY_ORDER: MenuCategory[] = ["อาหาร", "เครื่องดื่ม"];
+// Display order; empty categories are skipped at render time.
+const CATEGORY_ORDER: MenuCategory[] = ["อาหาร", "ของเพิ่ม", "เครื่องดื่ม"];
 
 type MenuGridProps = {
   menus: Menu[];
-  onAdd: (menu: Menu) => void;
+  onAdd: (menu: Menu, isSpecial?: boolean) => void;
 };
 
 export function MenuGrid({ menus, onAdd }: MenuGridProps) {
@@ -26,17 +26,33 @@ export function MenuGrid({ menus, onAdd }: MenuGridProps) {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {items.map((menu) => (
-                <button
+                <div
                   key={menu.id}
-                  type="button"
-                  onClick={() => onAdd(menu)}
-                  className="flex flex-col items-start gap-1 rounded-lg border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]"
+                  className="flex overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/50"
                 >
-                  <span className="font-medium leading-tight">{menu.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatBaht(menu.price)}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => onAdd(menu)}
+                    className="flex flex-1 flex-col items-start justify-center gap-1 p-3 text-left transition-colors hover:bg-primary/5 active:scale-[0.98]"
+                  >
+                    <span className="font-medium leading-tight">{menu.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {formatBaht(menu.price)}
+                    </span>
+                  </button>
+                  {menu.special_surcharge != null && (
+                    <button
+                      type="button"
+                      onClick={() => onAdd(menu, true)}
+                      className="flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 self-stretch border-l bg-primary/5 px-1 text-center font-medium text-primary transition-colors hover:bg-primary/15 active:scale-[0.98]"
+                    >
+                      <span className="text-sm leading-none">พิเศษ</span>
+                      <span className="text-xs leading-none opacity-80">
+                        +{formatBaht(menu.special_surcharge)}
+                      </span>
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           </section>

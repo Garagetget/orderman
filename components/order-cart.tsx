@@ -16,7 +16,19 @@ import { Separator } from "@/components/ui/separator";
 import type { Menu } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
 
-export type CartLine = { menu: Menu; quantity: number };
+export type CartLine = { menu: Menu; quantity: number; isSpecial: boolean };
+
+/** Stable key separating the ธรรมดา and พิเศษ variants of the same menu. */
+export function cartLineId(line: Pick<CartLine, "menu" | "isSpecial">) {
+  return line.isSpecial ? `${line.menu.id}:special` : line.menu.id;
+}
+
+/** Charged price per unit, surcharge included for the พิเศษ variant. */
+export function cartLineUnitPrice(line: Pick<CartLine, "menu" | "isSpecial">) {
+  return (
+    line.menu.price + (line.isSpecial ? (line.menu.special_surcharge ?? 0) : 0)
+  );
+}
 
 type OrderCartProps = {
   lines: CartLine[];
@@ -25,7 +37,7 @@ type OrderCartProps = {
   saving: boolean;
   onNoteChange: (note: string) => void;
   /** Pass quantity 0 (or less) to remove the line. */
-  onChangeQuantity: (menuId: string, quantity: number) => void;
+  onChangeQuantity: (lineId: string, quantity: number) => void;
   onClear: () => void;
   onSave: () => void;
 };
@@ -56,57 +68,70 @@ export function OrderCart({
           </div>
         ) : (
           <ul className="space-y-3">
-            {lines.map(({ menu, quantity }) => (
-              <li key={menu.id} className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{menu.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatBaht(menu.price)}
-                  </p>
-                </div>
+            {lines.map((line) => {
+              const { menu, quantity, isSpecial } = line;
+              const lineId = cartLineId(line);
+              const unitPrice = cartLineUnitPrice(line);
 
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="size-7"
-                    onClick={() => onChangeQuantity(menu.id, quantity - 1)}
-                    aria-label="ลดจำนวน"
-                  >
-                    <Minus className="size-3.5" />
-                  </Button>
-                  <span className="w-6 text-center text-sm tabular-nums">
-                    {quantity}
+              return (
+                <li key={lineId} className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {menu.name}
+                      {isSpecial && (
+                        <span className="ml-1 text-xs font-medium text-primary">
+                          (พิเศษ)
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatBaht(unitPrice)}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="size-7"
+                      onClick={() => onChangeQuantity(lineId, quantity - 1)}
+                      aria-label="ลดจำนวน"
+                    >
+                      <Minus className="size-3.5" />
+                    </Button>
+                    <span className="w-6 text-center text-sm tabular-nums">
+                      {quantity}
+                    </span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="size-7"
+                      onClick={() => onChangeQuantity(lineId, quantity + 1)}
+                      aria-label="เพิ่มจำนวน"
+                    >
+                      <Plus className="size-3.5" />
+                    </Button>
+                  </div>
+
+                  <span className="w-16 text-right text-sm font-medium tabular-nums">
+                    {formatBaht(unitPrice * quantity)}
                   </span>
+
                   <Button
                     type="button"
                     size="icon"
-                    variant="outline"
-                    className="size-7"
-                    onClick={() => onChangeQuantity(menu.id, quantity + 1)}
-                    aria-label="เพิ่มจำนวน"
+                    variant="ghost"
+                    className="size-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => onChangeQuantity(lineId, 0)}
+                    aria-label="ลบรายการ"
                   >
-                    <Plus className="size-3.5" />
+                    <Trash2 className="size-3.5" />
                   </Button>
-                </div>
-
-                <span className="w-16 text-right text-sm font-medium tabular-nums">
-                  {formatBaht(menu.price * quantity)}
-                </span>
-
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="size-7 text-muted-foreground hover:text-destructive"
-                  onClick={() => onChangeQuantity(menu.id, 0)}
-                  aria-label="ลบรายการ"
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
 

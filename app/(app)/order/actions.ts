@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import type { Json } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 
-export type OrderItemInput = { menu_id: string; quantity: number };
+export type OrderItemInput = {
+  menu_id: string;
+  quantity: number;
+  is_special?: boolean;
+};
 
 export type CreateOrderResult =
   | { ok: true; orderId: string }
@@ -28,7 +32,8 @@ export async function createOrder(
     if (
       typeof item?.menu_id !== "string" ||
       !Number.isInteger(item?.quantity) ||
-      item.quantity < 1
+      item.quantity < 1 ||
+      (item.is_special !== undefined && typeof item.is_special !== "boolean")
     ) {
       return { ok: false, error: "รายการออเดอร์ไม่ถูกต้อง" };
     }

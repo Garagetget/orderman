@@ -6,7 +6,12 @@ import { toast } from "sonner";
 
 import { createOrder } from "@/app/(app)/order/actions";
 import { MenuGrid } from "@/components/menu-grid";
-import { OrderCart, type CartLine } from "@/components/order-cart";
+import {
+  OrderCart,
+  cartLineId,
+  cartLineUnitPrice,
+  type CartLine,
+} from "@/components/order-cart";
 import type { Menu } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
 
@@ -16,30 +21,35 @@ export function OrderTaker({ menus }: { menus: Menu[] }) {
   const [saving, startSaving] = useTransition();
 
   const total = useMemo(
-    () => cart.reduce((sum, line) => sum + line.menu.price * line.quantity, 0),
+    () =>
+      cart.reduce(
+        (sum, line) => sum + cartLineUnitPrice(line) * line.quantity,
+        0,
+      ),
     [cart],
   );
 
-  function addItem(menu: Menu) {
+  function addItem(menu: Menu, isSpecial = false) {
     setCart((prev) => {
-      const existing = prev.find((line) => line.menu.id === menu.id);
+      const id = cartLineId({ menu, isSpecial });
+      const existing = prev.find((line) => cartLineId(line) === id);
       if (existing) {
         return prev.map((line) =>
-          line.menu.id === menu.id
+          cartLineId(line) === id
             ? { ...line, quantity: line.quantity + 1 }
             : line,
         );
       }
-      return [...prev, { menu, quantity: 1 }];
+      return [...prev, { menu, quantity: 1, isSpecial }];
     });
   }
 
-  function changeQuantity(menuId: string, quantity: number) {
+  function changeQuantity(lineId: string, quantity: number) {
     setCart((prev) =>
       quantity < 1
-        ? prev.filter((line) => line.menu.id !== menuId)
+        ? prev.filter((line) => cartLineId(line) !== lineId)
         : prev.map((line) =>
-            line.menu.id === menuId ? { ...line, quantity } : line,
+            cartLineId(line) === lineId ? { ...line, quantity } : line,
           ),
     );
   }
@@ -55,6 +65,7 @@ export function OrderTaker({ menus }: { menus: Menu[] }) {
     const items = cart.map((line) => ({
       menu_id: line.menu.id,
       quantity: line.quantity,
+      is_special: line.isSpecial,
     }));
     const savedTotal = total;
 
