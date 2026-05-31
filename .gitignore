@@ -37,8 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
-# claude code — per-user permissions (shared settings go in settings.json)
+# claude code — per-user permissions (machine-specific, don't commit)
 .claude/settings.local.json
+.claude/settings.json
 
 # typescript
 *.tsbuildinfo

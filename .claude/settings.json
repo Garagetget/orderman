@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(Write-Output \"=== agents ===\"; Get-ChildItem \"$env:USERPROFILE\\\\.claude\\\\agents\" | Select-Object Name; Write-Output \"\"; Write-Output \"=== skills ===\"; Get-ChildItem \"$env:USERPROFILE\\\\.claude\\\\skills\" -Recurse | Select-Object FullName)",
-      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\.claude\\\\skills\" -Recurse -Force | ForEach-Object { $_.FullName })"
-    ]
-  }
-}
