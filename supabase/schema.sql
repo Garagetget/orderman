@@ -151,10 +151,13 @@ $$;
 grant execute on function public.create_order(text, jsonb) to authenticated;
 
 -- ---------- update_order_items() ----------
--- Edits the quantities of existing items in one order, then recomputes the
+-- Syncs an order's items to the set the client sends, then recomputes the
 -- order total from the SERVER-SIDE snapshot prices (order_items.price) — the
 -- client sends only item_id + quantity, never a price, so it cannot change
 -- what the customer is charged. Runs in a single transaction.
+--   - items listed in p_items have their quantity updated
+--   - items of this order NOT listed in p_items are deleted (line removal)
+-- p_items must keep at least one item; cancel the order instead of emptying it.
 -- p_items: jsonb array of objects { "item_id": <uuid>, "quantity": <int> }
 
 create or replace function public.update_order_items(p_order_id uuid, p_items jsonb)
@@ -167,11 +170,12 @@ declare
   v_item_id uuid;
   v_qty     integer;
   v_total   numeric(10, 2);
+  v_keep    uuid[] := '{}';
 begin
   if p_items is null
      or jsonb_typeof(p_items) <> 'array'
      or jsonb_array_length(p_items) = 0 then
-    raise exception 'No items to update';
+    raise exception 'An order must keep at least one item';
   end if;
 
   -- A cancelled order is immutable.
@@ -199,7 +203,13 @@ begin
     if not found then
       raise exception 'Item % is not part of order %', v_item_id, p_order_id;
     end if;
+
+    v_keep := array_append(v_keep, v_item_id);
   end loop;
+
+  -- Drop any line the client removed from the order.
+  delete from public.order_items
+   where order_id = p_order_id and id <> all(v_keep);
 
   -- Recompute the total from the snapshotted unit prices.
   select coalesce(sum(price * quantity), 0) into v_total

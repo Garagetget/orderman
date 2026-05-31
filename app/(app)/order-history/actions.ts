@@ -35,6 +35,7 @@ export async function cancelOrder(orderId: string): Promise<OrderActionResult> {
     .eq("id", orderId);
 
   if (error) {
+    console.error("cancelOrder error:", error);
     return { ok: false, error: "ยกเลิกออเดอร์ไม่สำเร็จ กรุณาลองใหม่" };
   }
 
@@ -84,6 +85,7 @@ export async function updateOrderItems(
   });
 
   if (error) {
+    console.error("updateOrderItems RPC error:", error);
     return { ok: false, error: "แก้ไขออเดอร์ไม่สำเร็จ กรุณาลองใหม่" };
   }
 

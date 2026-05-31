@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ChevronDown, ChevronRight, Minus, Pencil, Plus, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Minus,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { toast } from "sonner";
 
@@ -33,6 +42,8 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
   const [mode, setMode] = useState<Mode>("view");
   // Draft quantities while editing, keyed by order_item id.
   const [draftQty, setDraftQty] = useState<Record<string, number>>({});
+  // Item ids the user marked for removal in the current edit session.
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
 
   if (orders.length === 0) {
@@ -52,22 +63,39 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
     setDraftQty(
       Object.fromEntries(order.order_items.map((it) => [it.id, it.quantity])),
     );
+    setRemovedIds(new Set());
     setMode("edit");
   }
 
   function changeDraft(itemId: string, next: number) {
-    if (next < 1) return; // removing items is out of scope — keep at least 1
+    if (next < 1) return; // use the trash button to remove a whole line
     setDraftQty((prev) => ({ ...prev, [itemId]: next }));
   }
 
+  function toggleRemoved(itemId: string) {
+    setRemovedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
   function handleSave(order: OrderWithItems) {
-    const items = order.order_items.map((it) => ({
-      item_id: it.id,
-      quantity: draftQty[it.id] ?? it.quantity,
-    }));
-    const unchanged = items.every(
-      (it, i) => it.quantity === order.order_items[i].quantity,
-    );
+    const items = order.order_items
+      .filter((it) => !removedIds.has(it.id))
+      .map((it) => ({ item_id: it.id, quantity: draftQty[it.id] ?? it.quantity }));
+
+    if (items.length === 0) {
+      toast.error("ออเดอร์ต้องมีอย่างน้อย 1 รายการ — ถ้าต้องการล้าง ให้ยกเลิกออเดอร์");
+      return;
+    }
+
+    const unchanged =
+      removedIds.size === 0 &&
+      order.order_items.every(
+        (it) => (draftQty[it.id] ?? it.quantity) === it.quantity,
+      );
     if (unchanged) {
       setMode("view");
       return;
@@ -104,9 +132,16 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
         const isEditing = isOpen && mode === "edit";
 
         const draftTotal = order.order_items.reduce(
-          (sum, it) => sum + it.price * (draftQty[it.id] ?? it.quantity),
+          (sum, it) =>
+            removedIds.has(it.id)
+              ? sum
+              : sum + it.price * (draftQty[it.id] ?? it.quantity),
           0,
         );
+        // Don't let the user delete the last remaining line.
+        const activeCount = isEditing
+          ? order.order_items.filter((it) => !removedIds.has(it.id)).length
+          : order.order_items.length;
 
         return (
           <div
@@ -147,13 +182,14 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
 
             {isOpen && (
               <div className="border-t px-4 py-3">
-                <table className="w-full text-sm">
+                <table className="w-full table-fixed text-sm">
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground">
                       <th className="pb-2 font-medium">รายการ</th>
-                      <th className="pb-2 text-right font-medium">จำนวน</th>
-                      <th className="pb-2 text-right font-medium">ราคา/ชิ้น</th>
-                      <th className="pb-2 text-right font-medium">รวม</th>
+                      <th className="w-28 pb-2 text-right font-medium">จำนวน</th>
+                      <th className="w-20 pb-2 text-right font-medium">ราคา/ชิ้น</th>
+                      <th className="w-20 pb-2 text-right font-medium">รวม</th>
+                      {isEditing && <th className="w-10 pb-2" aria-hidden />}
                     </tr>
                   </thead>
                   <tbody>
@@ -161,8 +197,15 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                       const qty = isEditing
                         ? (draftQty[item.id] ?? item.quantity)
                         : item.quantity;
+                      const isRemoved = isEditing && removedIds.has(item.id);
                       return (
-                        <tr key={item.id} className="border-t first:border-t-0">
+                        <tr
+                          key={item.id}
+                          className={cn(
+                            "border-t first:border-t-0",
+                            isRemoved && "text-muted-foreground line-through",
+                          )}
+                        >
                           <td className="py-1.5">
                             {item.menus?.name ?? "—"}
                             {item.is_special && (
@@ -179,7 +222,7 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                                   size="icon"
                                   variant="outline"
                                   className="size-6"
-                                  disabled={pending || qty <= 1}
+                                  disabled={pending || isRemoved || qty <= 1}
                                   onClick={() => changeDraft(item.id, qty - 1)}
                                   aria-label="ลดจำนวน"
                                 >
@@ -193,7 +236,7 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                                   size="icon"
                                   variant="outline"
                                   className="size-6"
-                                  disabled={pending}
+                                  disabled={pending || isRemoved}
                                   onClick={() => changeDraft(item.id, qty + 1)}
                                   aria-label="เพิ่มจำนวน"
                                 >
@@ -204,12 +247,34 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                               qty
                             )}
                           </td>
-                          <td className="py-1.5 text-right">
+                          <td className="py-1.5 text-right tabular-nums">
                             {formatBaht(item.price)}
                           </td>
                           <td className="py-1.5 text-right tabular-nums">
                             {formatBaht(item.price * qty)}
                           </td>
+                          {isEditing && (
+                            <td className="py-1.5 pl-2 text-right">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="size-6 text-muted-foreground hover:text-destructive"
+                                // Keep at least one active line.
+                                disabled={
+                                  pending || (!isRemoved && activeCount <= 1)
+                                }
+                                onClick={() => toggleRemoved(item.id)}
+                                aria-label={isRemoved ? "คืนค่ารายการ" : "ลบรายการ"}
+                              >
+                                {isRemoved ? (
+                                  <RotateCcw className="size-3.5" />
+                                ) : (
+                                  <Trash2 className="size-3.5" />
+                                )}
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
