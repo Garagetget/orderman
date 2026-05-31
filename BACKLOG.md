@@ -5,39 +5,25 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-05-29
+> Last updated: 2026-05-31
 
 ---
 
 ## In Progress
 
-_(none)_
-
----
-
-## To Do
-
-### Phase 2 — Post-MVP Features
-
-- [ ] **T11** ดูประวัติออเดอร์
-- [ ] **T12** แก้ไข/ยกเลิกออเดอร์ _(depends on T11)_
-- [ ] **T13** จัดการเมนู (Menu Management UI)
-- [ ] **T14** ยอดขายรายเมนูบน Dashboard
-- [ ] **T15** พิมพ์ใบเสร็จ _(depends on T11)_
-- [ ] **T16** สิทธิ์ผู้ใช้ (Owner vs. Staff)
-
----
-
-## Phase 2 — Post-MVP Features
-
 ### T11 — ดูประวัติออเดอร์
-- **Priority:** P1 · **Size:** M · **Status:** Todo · **Depends on:** —
+- **Priority:** P1 · **Size:** M · **Status:** In Progress · **Depends on:** —
+- **Branch:** `feat/T11-order-history` — implemented (order history page + expandable item details), not yet merged into `main`
 - **Acceptance:**
   - [ ] มีหน้า `/order-history` ใน protected route group
   - [ ] แสดงออเดอร์ทุกรายการ: เลขออเดอร์, วันเวลา, จำนวนรายการ, ยอดรวม, status
   - [ ] กดที่ออเดอร์แล้วเห็นรายการ item ในออเดอร์นั้น (expand หรือ modal)
   - [ ] ออเดอร์ที่ cancelled แสดงด้วย style ที่ต่างจากปกติ (เช่น strikethrough / dim)
   - [ ] ใช้ข้อมูลจริงจาก Supabase (RLS ผ่าน)
+
+---
+
+## To Do — Phase 2 (Post-MVP Features)
 
 ### T12 — แก้ไข/ยกเลิกออเดอร์
 - **Priority:** P1 · **Size:** M · **Status:** Todo · **Depends on:** T11
