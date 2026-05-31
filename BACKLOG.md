@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-05-31 (T11 merged into main)
+> Last updated: 2026-05-31 (T12 done)
 
 ---
 
@@ -20,7 +20,7 @@ _(none)_
 ### Phase 2 — Post-MVP Features
 
 - [x] **T11** ดูประวัติออเดอร์
-- [ ] **T12** แก้ไข/ยกเลิกออเดอร์ _(depends on T11)_
+- [x] **T12** แก้ไข/ยกเลิกออเดอร์ _(depends on T11)_
 - [ ] **T13** จัดการเมนู (Menu Management UI)
 - [ ] **T14** ยอดขายรายเมนูบน Dashboard
 - [ ] **T15** พิมพ์ใบเสร็จ _(depends on T11)_
@@ -44,13 +44,14 @@ _(none)_
 ## To Do — Phase 2 (Post-MVP Features)
 
 ### T12 — แก้ไข/ยกเลิกออเดอร์
-- **Priority:** P1 · **Size:** M · **Status:** Todo · **Depends on:** T11
+- **Priority:** P1 · **Size:** M · **Status:** Done · **Depends on:** T11
 - **Acceptance:**
-  - [ ] กดยกเลิกออเดอร์แล้ว status เปลี่ยนเป็น `cancelled` ในฐานข้อมูล
-  - [ ] ออเดอร์ที่ cancelled ไม่นับใน dashboard (ทดสอบว่ายอดรวม dashboard ลดลง)
-  - [ ] แก้ไข quantity ของ item ใน order แล้ว `order_items` อัปเดตถูกต้อง
-  - [ ] ยืนยันก่อนยกเลิก (dialog/confirm) ป้องกันกด cancel โดยไม่ตั้งใจ
-  - [ ] action เป็น server action (ไม่ใช่ client-side fetch โดยตรง)
+  - [x] กดยกเลิกออเดอร์แล้ว status เปลี่ยนเป็น `cancelled` ในฐานข้อมูล
+  - [x] ออเดอร์ที่ cancelled ไม่นับใน dashboard (dashboard กรอง `status = 'completed'` อยู่แล้ว)
+  - [x] แก้ไข quantity ของ item ใน order แล้ว `order_items` อัปเดตถูกต้อง
+  - [x] ยืนยันก่อนยกเลิก (inline 2-step confirm) ป้องกันกด cancel โดยไม่ตั้งใจ
+  - [x] action เป็น server action (`cancelOrder` / `updateOrderItems`)
+- **Notes:** total คำนวณใหม่ server-side ผ่าน `update_order_items()` RPC จาก snapshot price — client ส่งแค่ `item_id` + `quantity` (ราคาแก้จาก client ไม่ได้). ออเดอร์ที่ cancelled แก้ไม่ได้ (RPC reject + UI ซ่อนปุ่ม).
 
 ### T13 — จัดการเมนู (Menu Management UI)
 - **Priority:** P1 · **Size:** L · **Status:** Todo · **Depends on:** —

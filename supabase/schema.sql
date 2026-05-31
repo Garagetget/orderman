@@ -150,6 +150,68 @@ $$;
 
 grant execute on function public.create_order(text, jsonb) to authenticated;
 
+-- ---------- update_order_items() ----------
+-- Edits the quantities of existing items in one order, then recomputes the
+-- order total from the SERVER-SIDE snapshot prices (order_items.price) — the
+-- client sends only item_id + quantity, never a price, so it cannot change
+-- what the customer is charged. Runs in a single transaction.
+-- p_items: jsonb array of objects { "item_id": <uuid>, "quantity": <int> }
+
+create or replace function public.update_order_items(p_order_id uuid, p_items jsonb)
+returns void
+language plpgsql
+security invoker
+as $$
+declare
+  v_item    jsonb;
+  v_item_id uuid;
+  v_qty     integer;
+  v_total   numeric(10, 2);
+begin
+  if p_items is null
+     or jsonb_typeof(p_items) <> 'array'
+     or jsonb_array_length(p_items) = 0 then
+    raise exception 'No items to update';
+  end if;
+
+  -- A cancelled order is immutable.
+  perform 1 from public.orders
+   where id = p_order_id and status <> 'cancelled';
+  if not found then
+    raise exception 'Order % not found or cancelled', p_order_id;
+  end if;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_item_id := (v_item ->> 'item_id')::uuid;
+    v_qty     := (v_item ->> 'quantity')::integer;
+
+    if v_qty is null or v_qty < 1 then
+      raise exception 'Invalid quantity for item %', v_item_id;
+    end if;
+
+    -- Scope the update to this order so a tampered item_id belonging to
+    -- another order cannot be edited through this call.
+    update public.order_items
+       set quantity = v_qty
+     where id = v_item_id and order_id = p_order_id;
+
+    if not found then
+      raise exception 'Item % is not part of order %', v_item_id, p_order_id;
+    end if;
+  end loop;
+
+  -- Recompute the total from the snapshotted unit prices.
+  select coalesce(sum(price * quantity), 0) into v_total
+  from public.order_items
+  where order_id = p_order_id;
+
+  update public.orders set total = v_total where id = p_order_id;
+end;
+$$;
+
+grant execute on function public.update_order_items(uuid, jsonb) to authenticated;
+
 -- ---------- Menu seed ----------
 -- Remove the old demo menu. Safe to re-run and on fresh installs (matches
 -- nothing). Won't hit a FK error as long as no saved order references these

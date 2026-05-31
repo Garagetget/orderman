@@ -113,6 +113,10 @@ export type Database = {
         Args: { p_note: string | null; p_items: Json };
         Returns: string;
       };
+      update_order_items: {
+        Args: { p_order_id: string; p_items: Json };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
