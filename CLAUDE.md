@@ -36,13 +36,42 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `lib/sales.ts` — sales aggregation in fixed Bangkok time (UTC+7)
 - `lib/format.ts` — Thai baht formatter
 - `lib/database.types.ts` — generated DB types
-- `supabase/schema.sql` — full DB schema, RLS policies, `create_order()` + `update_order_items()` RPCs, menu seed
+- `supabase/migrations/` — **source of truth** for DB schema (CLI migrations). Apply with `npx supabase db push`
+- `supabase/schema.sql` — human-readable schema SNAPSHOT (RLS, `create_order()` + `update_order_items()` RPCs, menu seed). Regenerate after a migration via `npx supabase db dump --linked -f supabase/schema.sql`
+- `supabase/config.toml` — Supabase CLI config (committed; no secrets)
 
 ## Scripts
 - `npm run dev` — Next.js dev server
 - `npm run lint` — ESLint (must pass clean before commit)
 - `npm run build` — production build (must pass clean before commit)
 - No test runner is configured — verify changes via `npm run lint` + `npm run build`
+- `npx supabase db push` — apply pending migrations to the linked project
+- `npx supabase migration new <name>` — scaffold a new migration for a schema change
+
+## Database environments (two Supabase projects)
+Both live in the owner's Supabase org. Project refs are **not secret** (they're the
+public `*.supabase.co` subdomain); the anon key + DB password are the secrets and never
+get committed.
+
+| Env | Project | Ref | Region |
+| --- | --- | --- | --- |
+| **dev / non-prod** | `orderman` | `osqhsgolczlptfihfrry` | Singapore `ap-southeast-1` |
+| **prod** | `orderman-prod` | `jtjevgotgajdulkyikkj` | Singapore `ap-southeast-1` |
+
+**Branch → target rule (Claude must follow when running `db push`):**
+- On `develop` (or any non-`main` branch) → target **dev** (`orderman`)
+- On `main` → target **prod** (`orderman-prod`)
+
+`supabase link` holds ONE target at a time (stored in gitignored `supabase/.temp/project-ref`).
+Before any `db push`, Claude must:
+1. `git branch --show-current` and read `supabase/.temp/project-ref`
+2. If the linked ref doesn't match the branch's target, switch with `npm run db:link:dev`
+   or `npm run db:link:prod` (the owner enters the DB password at the prompt — Claude never
+   handles it). Then `npm run db:push`.
+3. **Never push to the prod ref unless the current branch is `main`.**
+
+Running the app does NOT use `link` — it reads `.env.local` (dev) / Vercel env (prod). Link
+only decides where `db push` lands.
 
 ## Data & security model (non-negotiable)
 - **RLS is on for every table.** Anonymous clients see nothing. Don't write queries that assume open access.
@@ -76,8 +105,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Don't (project-specific)
 - Don't add OAuth, magic links, or a sign-up page — users are provisioned in the Supabase dashboard
-- Don't change menu categories without updating the DB CHECK constraint in `supabase/schema.sql`
+- Don't change menu categories without updating the DB CHECK constraint (new migration in `supabase/migrations/`)
 - Don't bucket sales by server-local time — always UTC+7
-- Don't run schema changes outside `supabase/schema.sql` (it must stay reproducible / idempotent)
+- Don't hand-edit the DB outside a migration — every schema change is a new file in `supabase/migrations/` applied with `db push`; keep each migration idempotent and regenerate `schema.sql` afterward
 - Don't install new packages without asking
 - Don't commit or push to `main` directly
