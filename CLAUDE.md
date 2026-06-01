@@ -36,13 +36,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `lib/sales.ts` — sales aggregation in fixed Bangkok time (UTC+7)
 - `lib/format.ts` — Thai baht formatter
 - `lib/database.types.ts` — generated DB types
-- `supabase/schema.sql` — full DB schema, RLS policies, `create_order()` + `update_order_items()` RPCs, menu seed
+- `supabase/migrations/` — **source of truth** for DB schema (CLI migrations). Apply with `npx supabase db push`
+- `supabase/schema.sql` — human-readable schema SNAPSHOT (RLS, `create_order()` + `update_order_items()` RPCs, menu seed). Regenerate after a migration via `npx supabase db dump --linked -f supabase/schema.sql`
+- `supabase/config.toml` — Supabase CLI config (committed; no secrets)
 
 ## Scripts
 - `npm run dev` — Next.js dev server
 - `npm run lint` — ESLint (must pass clean before commit)
 - `npm run build` — production build (must pass clean before commit)
 - No test runner is configured — verify changes via `npm run lint` + `npm run build`
+- `npx supabase db push` — apply pending migrations to the linked project
+- `npx supabase migration new <name>` — scaffold a new migration for a schema change
 
 ## Data & security model (non-negotiable)
 - **RLS is on for every table.** Anonymous clients see nothing. Don't write queries that assume open access.
@@ -76,8 +80,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Don't (project-specific)
 - Don't add OAuth, magic links, or a sign-up page — users are provisioned in the Supabase dashboard
-- Don't change menu categories without updating the DB CHECK constraint in `supabase/schema.sql`
+- Don't change menu categories without updating the DB CHECK constraint (new migration in `supabase/migrations/`)
 - Don't bucket sales by server-local time — always UTC+7
-- Don't run schema changes outside `supabase/schema.sql` (it must stay reproducible / idempotent)
+- Don't hand-edit the DB outside a migration — every schema change is a new file in `supabase/migrations/` applied with `db push`; keep each migration idempotent and regenerate `schema.sql` afterward
 - Don't install new packages without asking
 - Don't commit or push to `main` directly

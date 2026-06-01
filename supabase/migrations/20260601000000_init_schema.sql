@@ -1,15 +1,8 @@
 -- ============================================================
---  orderman — database schema SNAPSHOT (human-readable reference)
---
---  NOT the source of truth anymore. Schema changes go through the
---  Supabase CLI migrations workflow:
---    supabase/migrations/*.sql  →  npx supabase db push
---
---  Regenerate this snapshot after a migration with:
---    npx supabase db dump --linked -f supabase/schema.sql
---
---  Still idempotent, so it can be pasted into the SQL editor in a
---  pinch — but prefer migrations so prod history stays in sync.
+--  orderman — database schema
+--  Run this whole file in the Supabase SQL editor:
+--    Dashboard → SQL Editor → New query → paste → Run
+--  Safe to run more than once (idempotent).
 -- ============================================================
 
 -- ---------- Tables ----------
