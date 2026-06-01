@@ -48,6 +48,31 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `npx supabase db push` — apply pending migrations to the linked project
 - `npx supabase migration new <name>` — scaffold a new migration for a schema change
 
+## Database environments (two Supabase projects)
+Both live in the owner's Supabase org. Project refs are **not secret** (they're the
+public `*.supabase.co` subdomain); the anon key + DB password are the secrets and never
+get committed.
+
+| Env | Project | Ref | Region |
+| --- | --- | --- | --- |
+| **dev / non-prod** | `orderman` | `osqhsgolczlptfihfrry` | Singapore `ap-southeast-1` |
+| **prod** | `orderman-prod` | `jtjevgotgajdulkyikkj` | Singapore `ap-southeast-1` |
+
+**Branch → target rule (Claude must follow when running `db push`):**
+- On `develop` (or any non-`main` branch) → target **dev** (`orderman`)
+- On `main` → target **prod** (`orderman-prod`)
+
+`supabase link` holds ONE target at a time (stored in gitignored `supabase/.temp/project-ref`).
+Before any `db push`, Claude must:
+1. `git branch --show-current` and read `supabase/.temp/project-ref`
+2. If the linked ref doesn't match the branch's target, switch with `npm run db:link:dev`
+   or `npm run db:link:prod` (the owner enters the DB password at the prompt — Claude never
+   handles it). Then `npm run db:push`.
+3. **Never push to the prod ref unless the current branch is `main`.**
+
+Running the app does NOT use `link` — it reads `.env.local` (dev) / Vercel env (prod). Link
+only decides where `db push` lands.
+
 ## Data & security model (non-negotiable)
 - **RLS is on for every table.** Anonymous clients see nothing. Don't write queries that assume open access.
 - **Price snapshot is server-side.** `order_items.price` is filled by the `create_order()` Postgres function looking up `menus.price` (+ `special_surcharge` when `is_special`) — a tampered client payload **cannot** change what the customer is charged. Do not bypass the RPC.
