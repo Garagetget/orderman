@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { ClipboardList, History, LayoutDashboard, LogOut } from "lucide-react";
+import {
+  ClipboardList,
+  History,
+  LayoutDashboard,
+  LogOut,
+  UtensilsCrossed,
+} from "lucide-react";
 
 import { signOut } from "@/app/auth/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -12,6 +18,7 @@ const LINKS = [
   { href: "/order", label: "จดออเดอร์", icon: ClipboardList },
   { href: "/order-history", label: "ประวัติ", icon: History },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/menu", label: "จัดการเมนู", icon: UtensilsCrossed },
 ] as const;
 
 export function AppNav({ userEmail }: { userEmail: string }) {
