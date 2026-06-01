@@ -15,7 +15,13 @@ import {
 import type { Menu } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
 
-export function OrderTaker({ menus }: { menus: Menu[] }) {
+export function OrderTaker({
+  menus,
+  categoryOrder,
+}: {
+  menus: Menu[];
+  categoryOrder: string[];
+}) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [note, setNote] = useState("");
   const [saving, startSaving] = useTransition();
@@ -84,7 +90,7 @@ export function OrderTaker({ menus }: { menus: Menu[] }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <MenuGrid menus={menus} onAdd={addItem} />
+      <MenuGrid menus={menus} categoryOrder={categoryOrder} onAdd={addItem} />
       <div className="lg:sticky lg:top-20 lg:self-start">
         <OrderCart
           lines={cart}

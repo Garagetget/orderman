@@ -5,12 +5,20 @@ export const dynamic = "force-dynamic";
 
 export default async function OrderPage() {
   const supabase = await createClient();
-  const { data: menus, error } = await supabase
-    .from("menus")
-    .select("*")
-    .eq("is_available", true)
-    .order("category", { ascending: true })
-    .order("name", { ascending: true });
+  const [menusRes, categoriesRes] = await Promise.all([
+    supabase
+      .from("menus")
+      .select("*")
+      .eq("is_available", true)
+      .order("name", { ascending: true }),
+    supabase
+      .from("categories")
+      .select("name")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
+  ]);
+  const { data: menus, error } = menusRes;
+  const categoryOrder = (categoriesRes.data ?? []).map((c) => c.name);
 
   return (
     <div className="space-y-5">
@@ -26,7 +34,7 @@ export default async function OrderPage() {
           โหลดเมนูไม่สำเร็จ: {error.message}
         </p>
       ) : (
-        <OrderTaker menus={menus ?? []} />
+        <OrderTaker menus={menus ?? []} categoryOrder={categoryOrder} />
       )}
     </div>
   );

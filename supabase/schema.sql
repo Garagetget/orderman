@@ -29,10 +29,29 @@ create table if not exists public.menus (
 alter table public.menus
   add column if not exists special_surcharge numeric(10, 2) check (special_surcharge > 0);
 
--- Idempotent upgrade for the category CHECK (added the 'ของเพิ่ม' bucket).
+-- Categories are user-managed (add/rename/delete from the /menu UI). The
+-- canonical list + display order lives in public.categories; menus.category is
+-- an FK so a rename cascades and an in-use category can't be deleted.
+create table if not exists public.categories (
+  name       text primary key,
+  sort_order integer not null default 0
+);
+
+insert into public.categories (name, sort_order) values
+  ('อาหาร', 1),
+  ('ของเพิ่ม', 2),
+  ('เครื่องดื่ม', 3)
+on conflict (name) do nothing;
+
+insert into public.categories (name, sort_order)
+  select distinct category, 99 from public.menus
+  on conflict (name) do nothing;
+
 alter table public.menus drop constraint if exists menus_category_check;
-alter table public.menus add constraint menus_category_check
-  check (category in ('อาหาร', 'เครื่องดื่ม', 'ของเพิ่ม'));
+alter table public.menus drop constraint if exists menus_category_fkey;
+alter table public.menus
+  add constraint menus_category_fkey foreign key (category)
+    references public.categories(name) on update cascade on delete restrict;
 
 create table if not exists public.orders (
   id          uuid primary key default gen_random_uuid(),
@@ -57,6 +76,7 @@ create table if not exists public.order_items (
 alter table public.order_items
   add column if not exists is_special boolean not null default false;
 
+create index if not exists menus_category_idx       on public.menus(category);
 create index if not exists order_items_order_id_idx on public.order_items(order_id);
 create index if not exists order_items_menu_id_idx  on public.order_items(menu_id);
 create index if not exists orders_created_at_idx    on public.orders(created_at);
@@ -65,13 +85,18 @@ create index if not exists orders_created_at_idx    on public.orders(created_at)
 -- Single-tenant restaurant app: any signed-in staff member gets full access.
 -- Unauthenticated requests (anon role) match no policy and are denied.
 
+alter table public.categories  enable row level security;
 alter table public.menus       enable row level security;
 alter table public.orders      enable row level security;
 alter table public.order_items enable row level security;
 
 grant select, insert, update, delete
-  on public.menus, public.orders, public.order_items
+  on public.categories, public.menus, public.orders, public.order_items
   to authenticated;
+
+drop policy if exists "authenticated full access" on public.categories;
+create policy "authenticated full access" on public.categories
+  for all to authenticated using (true) with check (true);
 
 drop policy if exists "authenticated full access" on public.menus;
 create policy "authenticated full access" on public.menus

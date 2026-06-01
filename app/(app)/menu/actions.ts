@@ -5,8 +5,6 @@ import { revalidatePath } from "next/cache";
 import type { MenuCategory } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 
-const CATEGORIES: MenuCategory[] = ["อาหาร", "เครื่องดื่ม", "ของเพิ่ม"];
-
 export type MenuActionResult = { ok: true } | { ok: false; error: string };
 
 export type MenuInput = {
@@ -16,7 +14,8 @@ export type MenuInput = {
   special_surcharge: number | null;
 };
 
-/** Server-side validation — never trust the client payload. */
+/** Server-side validation — never trust the client payload. The category's
+ * existence is enforced by the FK (23503 mapped below), so we only shape-check. */
 function validate(input: MenuInput): string | null {
   const name = typeof input?.name === "string" ? input.name.trim() : "";
   if (!name) return "กรุณากรอกชื่อเมนู";
@@ -27,7 +26,9 @@ function validate(input: MenuInput): string | null {
   ) {
     return "ราคาไม่ถูกต้อง";
   }
-  if (!CATEGORIES.includes(input.category)) return "หมวดหมู่ไม่ถูกต้อง";
+  if (typeof input.category !== "string" || input.category.trim().length === 0) {
+    return "กรุณาเลือกหมวดหมู่";
+  }
   if (
     input.special_surcharge !== null &&
     (typeof input.special_surcharge !== "number" ||
@@ -63,6 +64,7 @@ export async function createMenu(input: MenuInput): Promise<MenuActionResult> {
 
   if (error) {
     if (error.code === "23505") return { ok: false, error: "มีเมนูชื่อนี้อยู่แล้ว" };
+    if (error.code === "23503") return { ok: false, error: "หมวดหมู่ไม่ถูกต้อง" };
     console.error("createMenu error:", error);
     return { ok: false, error: "เพิ่มเมนูไม่สำเร็จ กรุณาลองใหม่" };
   }
@@ -99,6 +101,7 @@ export async function updateMenu(
 
   if (error) {
     if (error.code === "23505") return { ok: false, error: "มีเมนูชื่อนี้อยู่แล้ว" };
+    if (error.code === "23503") return { ok: false, error: "หมวดหมู่ไม่ถูกต้อง" };
     console.error("updateMenu error:", error);
     return { ok: false, error: "แก้ไขเมนูไม่สำเร็จ กรุณาลองใหม่" };
   }
@@ -132,6 +135,97 @@ export async function setMenuAvailability(
   if (error) {
     console.error("setMenuAvailability error:", error);
     return { ok: false, error: "เปลี่ยนสถานะเมนูไม่สำเร็จ กรุณาลองใหม่" };
+  }
+
+  revalidatePath("/menu");
+  revalidatePath("/order");
+  return { ok: true };
+}
+
+// ---------- Categories ----------
+
+export async function createCategory(name: string): Promise<MenuActionResult> {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) return { ok: false, error: "กรุณากรอกชื่อหมวดหมู่" };
+
+  const { supabase, user } = await requireUser();
+  if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+
+  // New categories sort to the end of the list.
+  const { data: last } = await supabase
+    .from("categories")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = (last?.sort_order ?? 0) + 1;
+
+  const { error } = await supabase
+    .from("categories")
+    .insert({ name: trimmed, sort_order: nextOrder });
+
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "มีหมวดหมู่นี้อยู่แล้ว" };
+    console.error("createCategory error:", error);
+    return { ok: false, error: "เพิ่มหมวดหมู่ไม่สำเร็จ กรุณาลองใหม่" };
+  }
+
+  revalidatePath("/menu");
+  revalidatePath("/order");
+  return { ok: true };
+}
+
+/** Renames a category. The FK's ON UPDATE CASCADE repoints every menu in it. */
+export async function renameCategory(
+  oldName: string,
+  newName: string,
+): Promise<MenuActionResult> {
+  const trimmed = typeof newName === "string" ? newName.trim() : "";
+  if (typeof oldName !== "string" || oldName.length === 0) {
+    return { ok: false, error: "หมวดหมู่ไม่ถูกต้อง" };
+  }
+  if (!trimmed) return { ok: false, error: "กรุณากรอกชื่อหมวดหมู่" };
+  if (trimmed === oldName) return { ok: true };
+
+  const { supabase, user } = await requireUser();
+  if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+
+  const { error } = await supabase
+    .from("categories")
+    .update({ name: trimmed })
+    .eq("name", oldName);
+
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "มีหมวดหมู่นี้อยู่แล้ว" };
+    console.error("renameCategory error:", error);
+    return { ok: false, error: "แก้ไขหมวดหมู่ไม่สำเร็จ กรุณาลองใหม่" };
+  }
+
+  revalidatePath("/menu");
+  revalidatePath("/order");
+  return { ok: true };
+}
+
+/** Deletes a category. Blocked by the FK (23503) if any menu still uses it. */
+export async function deleteCategory(name: string): Promise<MenuActionResult> {
+  if (typeof name !== "string" || name.length === 0) {
+    return { ok: false, error: "หมวดหมู่ไม่ถูกต้อง" };
+  }
+
+  const { supabase, user } = await requireUser();
+  if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+
+  const { error } = await supabase.from("categories").delete().eq("name", name);
+
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        ok: false,
+        error: "มีเมนูในหมวดนี้อยู่ — ย้ายหรือลบเมนูออกก่อนจึงลบหมวดได้",
+      };
+    }
+    console.error("deleteCategory error:", error);
+    return { ok: false, error: "ลบหมวดหมู่ไม่สำเร็จ กรุณาลองใหม่" };
   }
 
   revalidatePath("/menu");

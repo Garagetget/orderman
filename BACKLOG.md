@@ -18,6 +18,7 @@ _(none)_
 ## To Do — Phase 2 (Post-MVP Features)
 
 - [x] **T13** จัดการเมนู (Menu Management UI) · P1 · L
+- [x] **T18** จัดการหมวดหมู่แบบ dynamic (เพิ่ม/ลบ/แก้ชื่อ) · P1 · M _(extends T13)_
 - [ ] **T14** ยอดขายรายเมนูบน Dashboard · P2 · M
 - [ ] **T15** พิมพ์ใบเสร็จ · P2 · S _(depends on T11)_
 - [ ] **T16** สิทธิ์ผู้ใช้ (Owner vs. Staff) · P2 · L
@@ -33,8 +34,17 @@ _(none)_
   - [x] ตั้ง/แก้ `special_surcharge` ได้ (checkbox + ช่องส่วนเพิ่ม); ปล่อยว่าง = ไม่มีตัวเลือกพิเศษ
   - [x] แก้ไขชื่อ/ราคา/หมวดหมู่เมนูที่มีอยู่ได้ (inline form)
   - [x] ปิด/เปิดเมนู (`is_available` toggle) — เมนูที่ปิดไม่แสดงในหน้าจดออเดอร์
-  - [x] CHECK constraint ของ category ยังคงอยู่ใน schema (3 หมวด)
-- **Notes:** **ไม่ต้อง migration** — คอลัมน์ `is_available` (default true) มีอยู่ใน schema แล้ว และหน้า `/order` filter `is_available = true` อยู่ก่อนแล้ว. server actions: `createMenu` / `updateMenu` / `setMenuAvailability` ใน `app/(app)/menu/actions.ts` (validate ฝั่ง server, map duplicate-name 23505 เป็นข้อความไทย). **ไม่มี hard delete** — ใช้ปิดเมนูแทน เพราะ `order_items.menu_id` เป็น FK และออเดอร์เก่าต้องอ้างอิงเมนูได้. แก้ราคาเมนูไม่กระทบออเดอร์เก่า (snapshot price). เพิ่มลิงก์ "จัดการเมนู" ใน `app-nav.tsx`.
+  - [x] หมวดหมู่จัดการได้แบบ dynamic (ดู T18 — เดิม acceptance ข้อนี้คือ "คง CHECK constraint" แต่เปลี่ยนเป็นตาราง `categories` แทน)
+- **Notes:** **ไม่ต้อง migration** สำหรับตัว menu management — คอลัมน์ `is_available` (default true) มีอยู่ใน schema แล้ว และหน้า `/order` filter `is_available = true` อยู่ก่อนแล้ว. server actions: `createMenu` / `updateMenu` / `setMenuAvailability` ใน `app/(app)/menu/actions.ts` (validate ฝั่ง server, map duplicate-name 23505 เป็นข้อความไทย). **ไม่มี hard delete** — ใช้ปิดเมนูแทน เพราะ `order_items.menu_id` เป็น FK และออเดอร์เก่าต้องอ้างอิงเมนูได้. แก้ราคาเมนูไม่กระทบออเดอร์เก่า (snapshot price). เพิ่มลิงก์ "จัดการเมนู" ใน `app-nav.tsx`.
+
+### T18 — จัดการหมวดหมู่แบบ dynamic (extends T13)
+- **Priority:** P1 · **Size:** M · **Status:** Done (2026-06-01) · **Depends on:** T13
+- **Acceptance:**
+  - [x] เพิ่ม/ลบ/แก้ชื่อหมวดหมู่ได้จาก section "หมวดหมู่" บนหน้า `/menu`
+  - [x] แก้ชื่อหมวด → เมนูในหมวดนั้นตามไปด้วยอัตโนมัติ (FK `on update cascade`)
+  - [x] ลบหมวดที่ยังมีเมนูอยู่ → **ถูกบล็อก** (FK `on delete restrict`) + ขึ้นข้อความให้ย้าย/ลบเมนูก่อน
+  - [x] หมวดหมู่ทั้งหน้า order (`menu-grid`) และฟอร์มเมนูใช้รายชื่อจาก DB (ไม่ hardcode)
+- **Notes / ⚠️ ต้อง apply migration:** เปลี่ยน `menus.category` จาก CHECK เป็น FK ไปตาราง `categories(name PK, sort_order)`. migration ใหม่: `supabase/migrations/20260601130000_dynamic_categories.sql` (idempotent, seed 3 หมวดเดิม + backfill). **ต้องรัน `npm run db:push` (dev) ก่อนแอปทำงาน** — owner กรอก DB password เอง. types: `MenuCategory` เปลี่ยนเป็น `string` + เพิ่ม type `Category`. หมวดใหม่ต่อท้าย (sort_order = max+1); ยังไม่มี UI จัดลำดับ (reorder) — เป็น nice-to-have.
 
 ### T14 — ยอดขายรายเมนูบน Dashboard
 - **Priority:** P2 · **Size:** M · **Status:** Todo · **Depends on:** — (ทำหลัง T13 ได้ test data ดีกว่า)

@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  createCategory,
   createMenu,
+  deleteCategory,
+  renameCategory,
   setMenuAvailability,
   updateMenu,
   type MenuInput,
@@ -13,17 +16,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Menu, MenuCategory } from "@/lib/database.types";
+import type { Category, Menu } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-// Same display order as the order page menu-grid.
-const CATEGORIES: MenuCategory[] = ["อาหาร", "ของเพิ่ม", "เครื่องดื่ม"];
 
 type Draft = {
   name: string;
   price: string;
-  category: MenuCategory;
+  category: string;
   hasSpecial: boolean;
   surcharge: string;
 };
@@ -31,7 +31,7 @@ type Draft = {
 const EMPTY_DRAFT: Draft = {
   name: "",
   price: "",
-  category: "อาหาร",
+  category: "",
   hasSpecial: false,
   surcharge: "",
 };
@@ -50,6 +50,7 @@ function toDraft(menu: Menu): Draft {
 function parseDraft(draft: Draft): MenuInput | { error: string } {
   const name = draft.name.trim();
   if (!name) return { error: "กรุณากรอกชื่อเมนู" };
+  if (!draft.category) return { error: "กรุณาเลือกหมวดหมู่" };
 
   const price = Number(draft.price);
   if (!Number.isFinite(price) || price < 0) return { error: "ราคาไม่ถูกต้อง" };
@@ -68,6 +69,7 @@ function parseDraft(draft: Draft): MenuInput | { error: string } {
 
 function MenuForm({
   draft,
+  categories,
   onChange,
   onSubmit,
   onCancel,
@@ -75,6 +77,7 @@ function MenuForm({
   submitLabel,
 }: {
   draft: Draft;
+  categories: Category[];
   onChange: (next: Draft) => void;
   onSubmit: () => void;
   onCancel: () => void;
@@ -107,19 +110,25 @@ function MenuForm({
 
       <div className="space-y-1.5">
         <Label>หมวดหมู่</Label>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((cat) => (
-            <Button
-              key={cat}
-              type="button"
-              size="sm"
-              variant={draft.category === cat ? "default" : "outline"}
-              onClick={() => onChange({ ...draft, category: cat })}
-            >
-              {cat}
-            </Button>
-          ))}
-        </div>
+        {categories.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            ยังไม่มีหมวดหมู่ — เพิ่มหมวดหมู่ด้านล่างก่อน
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <Button
+                key={cat.name}
+                type="button"
+                size="sm"
+                variant={draft.category === cat.name ? "default" : "outline"}
+                onClick={() => onChange({ ...draft, category: cat.name })}
+              >
+                {cat.name}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -165,7 +174,194 @@ function MenuForm({
   );
 }
 
-export function MenuManager({ menus }: { menus: Menu[] }) {
+function CategoryManager({ categories }: { categories: Category[] }) {
+  const [adding, setAdding] = useState("");
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function submitAdd() {
+    const name = adding.trim();
+    if (!name) return;
+    startTransition(async () => {
+      const res = await createCategory(name);
+      if (res.ok) {
+        toast.success("เพิ่มหมวดหมู่เรียบร้อย");
+        setAdding("");
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
+
+  function submitRename(oldName: string) {
+    const next = editValue.trim();
+    if (!next || next === oldName) {
+      setEditingName(null);
+      return;
+    }
+    startTransition(async () => {
+      const res = await renameCategory(oldName, next);
+      if (res.ok) {
+        toast.success("แก้ไขหมวดหมู่เรียบร้อย");
+        setEditingName(null);
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
+
+  function submitDelete(name: string) {
+    startTransition(async () => {
+      const res = await deleteCategory(name);
+      if (res.ok) {
+        toast.success("ลบหมวดหมู่เรียบร้อย");
+        setConfirmDelete(null);
+      } else {
+        toast.error(res.error);
+        setConfirmDelete(null);
+      }
+    });
+  }
+
+  return (
+    <section className="space-y-3 rounded-lg border bg-muted/20 p-4">
+      <div className="flex items-center gap-2">
+        <span className="h-4 w-0.5 rounded-full bg-primary" aria-hidden="true" />
+        <h2 className="text-sm font-semibold">หมวดหมู่</h2>
+      </div>
+
+      <div className="space-y-2">
+        {categories.map((cat) =>
+          editingName === cat.name ? (
+            <div key={cat.name} className="flex items-center gap-2">
+              <Input
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                className="h-8 max-w-[220px]"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitRename(cat.name);
+                  if (e.key === "Escape") setEditingName(null);
+                }}
+              />
+              <Button
+                type="button"
+                size="icon"
+                className="size-8"
+                disabled={pending}
+                onClick={() => submitRename(cat.name)}
+                aria-label="บันทึก"
+              >
+                <Check className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                disabled={pending}
+                onClick={() => setEditingName(null)}
+                aria-label="ยกเลิก"
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+          ) : (
+            <div
+              key={cat.name}
+              className="flex items-center gap-2 rounded-md border bg-card px-3 py-1.5"
+            >
+              <span className="flex-1 text-sm font-medium">{cat.name}</span>
+              {confirmDelete === cat.name ? (
+                <>
+                  <span className="text-xs text-muted-foreground">ลบหมวดนี้?</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={pending}
+                    onClick={() => submitDelete(cat.name)}
+                  >
+                    ลบ
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => setConfirmDelete(null)}
+                  >
+                    ไม่
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-muted-foreground"
+                    disabled={pending}
+                    onClick={() => {
+                      setEditingName(cat.name);
+                      setEditValue(cat.name);
+                    }}
+                    aria-label="แก้ไขหมวดหมู่"
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-muted-foreground hover:text-destructive"
+                    disabled={pending}
+                    onClick={() => setConfirmDelete(cat.name)}
+                    aria-label="ลบหมวดหมู่"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </>
+              )}
+            </div>
+          ),
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Input
+          value={adding}
+          onChange={(e) => setAdding(e.target.value)}
+          placeholder="ชื่อหมวดหมู่ใหม่"
+          className="h-8 max-w-[220px]"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submitAdd();
+          }}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={pending || adding.trim().length === 0}
+          onClick={submitAdd}
+        >
+          <Plus className="size-3.5" />
+          เพิ่มหมวด
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+export function MenuManager({
+  menus,
+  categories,
+}: {
+  menus: Menu[];
+  categories: Category[];
+}) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
@@ -173,7 +369,7 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
 
   function openAdd() {
     setEditingId(null);
-    setDraft(EMPTY_DRAFT);
+    setDraft({ ...EMPTY_DRAFT, category: categories[0]?.name ?? "" });
     setAdding(true);
   }
 
@@ -233,11 +429,22 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
     });
   }
 
+  // Group by the category display order; trailing group catches any menu whose
+  // category somehow isn't in the list (shouldn't happen with the FK).
+  const known = new Set(categories.map((c) => c.name));
+  const orphanCategories = [
+    ...new Set(menus.map((m) => m.category).filter((c) => !known.has(c))),
+  ];
+  const groupOrder = [...categories.map((c) => c.name), ...orphanCategories];
+
   return (
     <div className="space-y-5">
+      <CategoryManager categories={categories} />
+
       {adding ? (
         <MenuForm
           draft={draft}
+          categories={categories}
           onChange={setDraft}
           onSubmit={submitAdd}
           onCancel={close}
@@ -251,7 +458,7 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
         </Button>
       )}
 
-      {CATEGORIES.map((category) => {
+      {groupOrder.map((category) => {
         const items = menus.filter((m) => m.category === category);
         if (items.length === 0) return null;
 
@@ -267,6 +474,7 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
                   <MenuForm
                     key={menu.id}
                     draft={draft}
+                    categories={categories}
                     onChange={setDraft}
                     onSubmit={() => submitEdit(menu.id)}
                     onCancel={close}

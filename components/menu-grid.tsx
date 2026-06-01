@@ -1,20 +1,19 @@
 "use client";
 
-import type { Menu, MenuCategory } from "@/lib/database.types";
+import type { Menu } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
-
-// Display order; empty categories are skipped at render time.
-const CATEGORY_ORDER: MenuCategory[] = ["อาหาร", "ของเพิ่ม", "เครื่องดื่ม"];
 
 type MenuGridProps = {
   menus: Menu[];
+  // Category display order (from the categories table); empty groups are skipped.
+  categoryOrder: string[];
   onAdd: (menu: Menu, isSpecial?: boolean) => void;
 };
 
-export function MenuGrid({ menus, onAdd }: MenuGridProps) {
+export function MenuGrid({ menus, categoryOrder, onAdd }: MenuGridProps) {
   return (
     <div className="space-y-6">
-      {CATEGORY_ORDER.map((category) => {
+      {categoryOrder.map((category) => {
         const items = menus.filter((menu) => menu.category === category);
         if (items.length === 0) return null;
 

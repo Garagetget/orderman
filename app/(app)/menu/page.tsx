@@ -7,11 +7,19 @@ export default async function MenuPage() {
   const supabase = await createClient();
   // Unlike the order page, show ALL menus here (including disabled ones) so the
   // owner can re-enable them.
-  const { data: menus, error } = await supabase
-    .from("menus")
-    .select("*")
-    .order("category", { ascending: true })
-    .order("name", { ascending: true });
+  const [menusRes, categoriesRes] = await Promise.all([
+    supabase
+      .from("menus")
+      .select("*")
+      .order("name", { ascending: true }),
+    supabase
+      .from("categories")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
+  ]);
+  const { data: menus, error } = menusRes;
+  const categories = categoriesRes.data ?? [];
 
   return (
     <div className="space-y-5">
@@ -27,7 +35,7 @@ export default async function MenuPage() {
           โหลดเมนูไม่สำเร็จ: {error.message}
         </p>
       ) : (
-        <MenuManager menus={menus ?? []} />
+        <MenuManager menus={menus ?? []} categories={categories} />
       )}
     </div>
   );
