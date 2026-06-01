@@ -16,6 +16,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import type { Category, Menu } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -226,11 +232,10 @@ function CategoryManager({ categories }: { categories: Category[] }) {
   }
 
   return (
-    <section className="space-y-3 rounded-lg border bg-muted/20 p-4">
-      <div className="flex items-center gap-2">
-        <span className="h-4 w-0.5 rounded-full bg-primary" aria-hidden="true" />
-        <h2 className="text-sm font-semibold">หมวดหมู่</h2>
-      </div>
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        หมวดหมู่ใช้จัดกลุ่มเมนู — แก้ชื่อแล้วเมนูในหมวดนั้นจะเปลี่ยนตาม ลบได้เฉพาะหมวดที่ไม่มีเมนูอยู่
+      </p>
 
       <div className="space-y-2">
         {categories.map((cat) =>
@@ -351,7 +356,7 @@ function CategoryManager({ categories }: { categories: Category[] }) {
           เพิ่มหมวด
         </Button>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -438,27 +443,31 @@ export function MenuManager({
   const groupOrder = [...categories.map((c) => c.name), ...orphanCategories];
 
   return (
-    <div className="space-y-5">
-      <CategoryManager categories={categories} />
+    <Tabs defaultValue="menus">
+      <TabsList>
+        <TabsTrigger value="menus">เมนู</TabsTrigger>
+        <TabsTrigger value="categories">หมวดหมู่</TabsTrigger>
+      </TabsList>
 
-      {adding ? (
-        <MenuForm
-          draft={draft}
-          categories={categories}
-          onChange={setDraft}
-          onSubmit={submitAdd}
-          onCancel={close}
-          pending={pending}
-          submitLabel="เพิ่มเมนู"
-        />
-      ) : (
-        <Button type="button" onClick={openAdd}>
-          <Plus className="size-4" />
-          เพิ่มเมนูใหม่
-        </Button>
-      )}
+      <TabsContent value="menus" className="space-y-5 pt-2">
+        {adding ? (
+          <MenuForm
+            draft={draft}
+            categories={categories}
+            onChange={setDraft}
+            onSubmit={submitAdd}
+            onCancel={close}
+            pending={pending}
+            submitLabel="เพิ่มเมนู"
+          />
+        ) : (
+          <Button type="button" onClick={openAdd}>
+            <Plus className="size-4" />
+            เพิ่มเมนูใหม่
+          </Button>
+        )}
 
-      {groupOrder.map((category) => {
+        {groupOrder.map((category) => {
         const items = menus.filter((m) => m.category === category);
         if (items.length === 0) return null;
 
@@ -530,7 +539,12 @@ export function MenuManager({
             </div>
           </section>
         );
-      })}
-    </div>
+        })}
+      </TabsContent>
+
+      <TabsContent value="categories" className="pt-2">
+        <CategoryManager categories={categories} />
+      </TabsContent>
+    </Tabs>
   );
 }
