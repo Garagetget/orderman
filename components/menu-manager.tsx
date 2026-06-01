@@ -105,7 +105,7 @@ function MenuForm({
   submitLabel: string;
 }) {
   return (
-    <div className="space-y-4 rounded-xl bg-card p-4 shadow-sm ring-1 ring-foreground/10">
+    <div className="max-w-2xl space-y-4 rounded-xl bg-card p-4 shadow-sm ring-1 ring-foreground/10">
       <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
         <div className="space-y-1.5">
           <Label htmlFor="menu-name">ชื่อเมนู</Label>
@@ -573,7 +573,7 @@ export function MenuManager({
 
   return (
     <Tabs defaultValue="menus">
-      <TabsList>
+      <TabsList variant="line" className="gap-4 border-b">
         <TabsTrigger value="menus">เมนู</TabsTrigger>
         <TabsTrigger value="categories">หมวดหมู่</TabsTrigger>
       </TabsList>
