@@ -73,6 +73,16 @@ Before any `db push`, Claude must:
 Running the app does NOT use `link` — it reads `.env.local` (dev) / Vercel env (prod). Link
 only decides where `db push` lands.
 
+## Deployment
+- prod runs on **Vercel**, pointed at the **prod** Supabase project via Vercel env vars
+  (Settings → Environment Variables, scope **Production**):
+  - `NEXT_PUBLIC_SUPABASE_URL` = `https://jtjevgotgajdulkyikkj.supabase.co`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the **anon** key of `orderman-prod` (never service_role)
+- dev never touches Vercel prod — it reads `.env.local` (the dev project) locally
+- env changes don't apply to the live deployment until a **Redeploy** (or a new push)
+- after changing the DB schema on `main`/prod, smoke-test by logging into the deployed app and
+  checking the menu grid loads (covers schema + seed + RLS + RPC at once)
+
 ## Data & security model (non-negotiable)
 - **RLS is on for every table.** Anonymous clients see nothing. Don't write queries that assume open access.
 - **Price snapshot is server-side.** `order_items.price` is filled by the `create_order()` Postgres function looking up `menus.price` (+ `special_surcharge` when `is_special`) — a tampered client payload **cannot** change what the customer is charged. Do not bypass the RPC.
