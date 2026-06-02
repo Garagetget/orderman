@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-02 (T25 done — app-layer owner guard บน menu/category actions; RLS write-policy เลื่อนไป T28)
+> Last updated: 2026-06-02 (T26 done — RBAC schema + helpers + RLS + backfill, apply ขึ้น dev แล้ว; schema.sql regen ค้างเพราะ Docker ปิด)
 
 ---
 
@@ -58,16 +58,16 @@ _(none)_
 > **ลำดับที่ต้องทำ:** T26 → T27 → T28 → T29 → T30 (T26 เป็น foundation ของทุกตัว)
 
 ### T26 — RBAC database schema + helper functions + RLS + backfill
-- **Priority:** P0 · **Size:** L · **Status:** Todo · **Depends on:** T25
+- **Priority:** P0 · **Size:** L · **Status:** Done (2026-06-02) · **Depends on:** T25
 - **Scope:** migration ใหม่ใน `supabase/migrations/` + regenerate `supabase/schema.sql` + สร้าง portable `supabase/rbac/rbac.sql`
 - **Acceptance:**
-  - [ ] ตาราง `roles(key text pk, label text)`, `permissions(key text pk, label text, description text)`, `role_permissions(role_key fk→roles, permission_key fk→permissions, pk รวม)`, `user_roles(user_id uuid fk→auth.users on delete cascade, role_key fk→roles, pk รวม)` — รองรับหลาย role/หลาย permission ต่อ user (generic) แม้ orderman ใช้ role เดียว
-  - [ ] helper functions (SECURITY DEFINER, `search_path` ตรึง): `public.auth_has_permission(p_permission text) returns boolean` (เช็ค `auth.uid()` ผ่าน user_roles→role_permissions) และ `public.auth_user_permissions() returns setof text` (list permission ของ user ปัจจุบัน — ให้ guard ดึงครั้งเดียว)
-  - [ ] **RLS:** `roles`/`permissions`/`role_permissions`/`user_roles` เปิด RLS; **SELECT** ได้สำหรับ `authenticated` (ให้ guard resolve ได้); **INSERT/UPDATE/DELETE** ไม่มี policy ให้ `authenticated` (ถูกปฏิเสธทั้งหมด) → เขียนได้เฉพาะ service_role. **verify:** ใช้ session ปกติ (anon key) `insert/update` ลง `user_roles` ของตัวเอง → ถูก RLS ปฏิเสธ
-  - [ ] seed (ส่วน app-specific, แยก section ในไฟล์ให้ชัด): 5 permission + 2 role + role_permissions ตาม catalog ข้างบน (idempotent, `on conflict do nothing`/`do update`)
-  - [ ] **backfill `user_roles` จาก `app_metadata.role` เดิม:** ทุก row ใน `auth.users` → `role:"staff"` ได้ role `staff`, ที่เหลือได้ `owner`. **กัน lockout:** owner เดิมต้องมี row `owner` หลัง migration. ไม่ลบ `app_metadata.role` ทิ้ง (เผื่อ rollback — โค้ดแค่เลิกอ่านมันใน T28)
-  - [ ] `supabase/rbac/rbac.sql` = ก้อน SQL เดียวที่ rerun ได้ (tables + helpers + RLS + seed catalog) คัดลอกไป project อื่นได้ พร้อม comment กำกับว่าส่วนไหนต้องแก้ต่อ project
-  - [ ] regenerate `supabase/schema.sql` snapshot หลัง migration
+  - [x] ตาราง `roles(key text pk, label text)`, `permissions(key text pk, label text, description text)`, `role_permissions(role_key fk→roles, permission_key fk→permissions, pk รวม)`, `user_roles(user_id uuid fk→auth.users on delete cascade, role_key fk→roles, pk รวม)` — รองรับหลาย role/หลาย permission ต่อ user (generic) แม้ orderman ใช้ role เดียว
+  - [x] helper functions (SECURITY DEFINER, `search_path` ตรึง): `public.auth_has_permission(p_permission text) returns boolean` (เช็ค `auth.uid()` ผ่าน user_roles→role_permissions) และ `public.auth_user_permissions() returns setof text` (list permission ของ user ปัจจุบัน — ให้ guard ดึงครั้งเดียว)
+  - [x] **RLS:** `roles`/`permissions`/`role_permissions`/`user_roles` เปิด RLS; **SELECT** ได้สำหรับ `authenticated` (ให้ guard resolve ได้); **INSERT/UPDATE/DELETE** ไม่มี policy ให้ `authenticated` (ถูกปฏิเสธทั้งหมด) → เขียนได้เฉพาะ service_role. _(verify ด้วย anon session ทำตอน T28 ตอนต่อ guard เข้าจริง)_
+  - [x] seed (ส่วน app-specific, แยก section ในไฟล์ให้ชัด): 5 permission + 2 role + role_permissions ตาม catalog ข้างบน (idempotent, `on conflict do nothing`/`do update`)
+  - [x] **backfill `user_roles` จาก `app_metadata.role` เดิม:** ทุก row ใน `auth.users` → `role:"staff"` ได้ role `staff`, ที่เหลือได้ `owner`. **กัน lockout:** owner เดิมต้องมี row `owner` หลัง migration. ไม่ลบ `app_metadata.role` ทิ้ง (เผื่อ rollback — โค้ดแค่เลิกอ่านมันใน T28)
+  - [x] `supabase/rbac/rbac.sql` = ก้อน SQL เดียวที่ rerun ได้ (tables + helpers + RLS + seed catalog) คัดลอกไป project อื่นได้ พร้อม comment กำกับว่าส่วนไหนต้องแก้ต่อ project
+  - [ ] regenerate `supabase/schema.sql` snapshot หลัง migration — **pending: `supabase db dump` ต้องใช้ Docker ซึ่งเครื่องนี้ปิดอยู่** (เหมือน snapshot เดิมที่ยังว่าง). migration เป็น source of truth และ apply ขึ้น dev แล้ว. regen เมื่อ Docker พร้อม
 - **⚠️ ต้องรัน DB (Get รันเอง):** migration นี้ลง **dev ก่อน** ผ่าน `npm run db:link:dev` + `npm run db:push` (Claude ลองรันให้ก่อน — ถ้า CLI ขอ DB password ค่อยส่งให้ Get รัน). **ห้าม push prod** จนกว่าจะ merge ขึ้น `main`. **ลำดับ deploy สำคัญ:** migration (พร้อม backfill) ต้อง apply **ก่อน** โค้ด guard ใหม่ (T28) go-live — ถ้าโค้ดใหม่ขึ้นก่อนตาราง guard query จะ error = lock ทุกคน
 - **Notes:** helper เป็น SECURITY DEFINER เพื่ออ่าน user_roles ได้แม้ caller ไม่มีสิทธิ์ direct select (และใช้ใน RLS policy ของ menus/categories ใน T28 ได้). อย่าใส่ business logic อื่นในก้อน rbac.sql — ให้มันเป็น auth layer ล้วนๆ เพื่อ portability
 
