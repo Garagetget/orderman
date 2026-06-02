@@ -18,7 +18,8 @@ export default async function MenuPage() {
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
   ]);
-  const { data: menus, error } = menusRes;
+  const error = menusRes.error ?? categoriesRes.error;
+  const menus = menusRes.data;
   const categories = categoriesRes.data ?? [];
 
   return (

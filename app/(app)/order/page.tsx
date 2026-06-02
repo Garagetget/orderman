@@ -17,7 +17,10 @@ export default async function OrderPage() {
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
   ]);
-  const { data: menus, error } = menusRes;
+  // Surface either query's error — a failed categories load leaves categoryOrder
+  // empty, which silently hides every menu (the grid only renders known categories).
+  const error = menusRes.error ?? categoriesRes.error;
+  const menus = menusRes.data;
   const categoryOrder = (categoriesRes.data ?? []).map((c) => c.name);
 
   return (
