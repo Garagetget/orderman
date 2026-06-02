@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-02 (T29 done — หน้า /admin/users + user-management server actions ผ่าน service_role admin client; nav link "จัดการผู้ใช้" gated `user.manage`; self-demote/self-delete/last-owner ถูกบล็อก; lint+build ผ่าน clean โดยไม่ต้อง set service_role key. pending: Get set `SUPABASE_SERVICE_ROLE_KEY` ใน .env.local แล้ว live-test; regen schema.sql (Docker))
+> Last updated: 2026-06-02 (T30 done — docs + portability packaging: README RBAC usage + "RBAC module (portable)" section + `SUPABASE_SERVICE_ROLE_KEY` env (local+Vercel); CLAUDE.md project structure + RBAC security model; `app_metadata.role` marked deprecated (kept for rollback, not deleted); schema.sql regen deferred to Docker (stale note added in-file, file intact). **Phase 5 ครบ T26–T30.** docs-only, lint+build ผ่าน clean. pending Get: set service_role key + live-test /admin/users; merge main → push Phase 5 migrations to prod before redeploy; regen schema.sql when Docker up)
 
 ---
 
@@ -31,7 +31,17 @@ _(none)_
 
 ---
 
-## To Do — Phase 5 (Custom Portable RBAC / User Management)
+## Phase 5 (Custom Portable RBAC / User Management) — ✅ Done (2026-06-02)
+
+> ✅ Phase 5 เสร็จ (2026-06-02) — T26–T30 ครบ: RBAC tables + helpers + RLS + backfill
+> (migration `20260602010000`), service-role admin client + env (`SUPABASE_SERVICE_ROLE_KEY`),
+> permission guard/proxy cutover (เลิกอ่าน `app_metadata.role`) + menu/category write RLS
+> (`20260602020000`, ลบ `lib/roles.ts`/`lib/supabase/guards.ts`), หน้า `/admin/users`, และ docs +
+> portability packaging. `npm run lint && npm run build` ผ่าน clean.
+> **ยังค้าง (Get ทำเอง ก่อน live):** (1) set `SUPABASE_SERVICE_ROLE_KEY` ใน `.env.local` (dev) +
+> Vercel Production (prod key) → live-test `/admin/users`; (2) ตอน merge `main`: push migration
+> Phase 5 ขึ้น prod **ก่อน** redeploy โค้ด (ลำดับสำคัญ — โค้ด guard ใหม่ query RBAC tables);
+> (3) regen `supabase/schema.sql` เมื่อ Docker พร้อม.
 
 > **เป้าหมาย:** ย้าย user management จาก "ตั้ง role ผ่าน Supabase dashboard/SQL" → RBAC layer
 > ของเราเองในแอป ที่ **portable ข้าม project**. คง Supabase Auth เป็น identity provider เดิม
@@ -118,15 +128,15 @@ _(none)_
 - **Notes:** ทุก mutation ใช้ admin client (service_role) ฝั่ง server เท่านั้น — client component ส่งแค่ค่า form ผ่าน action, ไม่เคยเห็น service_role key. password validate ฝั่ง server (≥8 ตัว) + email shape + role ∈ {owner,staff}. duplicate email map เป็นข้อความไทย. ไม่ทำ password reset เอง (ใช้ Supabase Auth flow เดิม). RBAC tables (`roles`/`user_roles`) ยังไม่อยู่ใน generated types (snapshot ยังไม่ regen — ไม่มี Docker) → query ผ่าน localized `as any` cast เหมือน `lib/rbac/guards.ts`
 
 ### T30 — Docs + portability packaging + cleanup
-- **Priority:** P2 · **Size:** S–M · **Status:** Todo · **Depends on:** T26, T27, T28, T29
+- **Priority:** P2 · **Size:** S–M · **Status:** Done (2026-06-02) · **Depends on:** T26, T27, T28, T29
 - **Acceptance:**
-  - [ ] README: แทน section "ตั้ง role ผ่าน SQL Editor" ด้วยวิธีใหม่ — owner เพิ่ม/ลบ staff + assign role จากหน้า `/admin/users` ในแอป (ไม่ต้องเข้า Supabase dashboard อีก)
-  - [ ] README: เพิ่ม section "RBAC module (portable)" — วิธี copy `lib/rbac/` + `supabase/rbac/rbac.sql` ไป project ใหม่, จุดที่ต้องแก้ (permission catalog + route map), และ env `SUPABASE_SERVICE_ROLE_KEY`
-  - [ ] README: ระบุว่าเปลี่ยน role มีผลทันที (DB lookup) ไม่ต้อง re-login; Supabase Auth (login/reset password/verify email) ยังใช้ flow เดิม
-  - [ ] CLAUDE.md: อัปเดต project structure + data/security model สะท้อน RBAC layer + service_role admin path
-  - [ ] ยืนยัน `supabase/schema.sql` snapshot ตรงกับ migration ล่าสุด (regenerate ถ้ายังไม่ทำ)
-  - [ ] (ถ้าตัดสินใจ) migration cleanup ลบ `app_metadata.role` ที่ไม่ใช้แล้ว — **หรือ** คงไว้ + เขียน note ว่าเลิกใช้แต่เก็บเผื่อ rollback (เลือกอย่างใดอย่างหนึ่ง ระบุในไฟล์)
-- **Notes:** เอกสารต้องชัดพอให้ Get เอา RBAC ไปใช้ซ้ำ project Fastwork อื่นได้โดยไม่ต้องรื้อ — นั่นคือเป้าหมายหลักของ Phase 5
+  - [x] README: แทน section "ตั้ง role ผ่าน SQL Editor" ด้วยวิธีใหม่ — owner เพิ่ม/ลบ staff + assign role จากหน้า `/admin/users` ในแอป (ไม่ต้องเข้า Supabase dashboard อีก); ระบุวิธี seed owner คนแรก (backfill สำหรับ project เดิม / SQL one-liner สำหรับ project ใหม่)
+  - [x] README: เพิ่ม section "RBAC module (portable)" — วิธี copy `lib/rbac/` + `supabase/rbac/rbac.sql` ไป project ใหม่, จุดที่ต้องแก้ (permission catalog ใน rbac.sql + `ROUTE_PERMISSIONS` ใน permissions.ts), env `SUPABASE_SERVICE_ROLE_KEY` แยกต่อ project, และ note ว่า backfill เป็น project-specific (ไม่อยู่ใน rbac.sql)
+  - [x] README: ระบุว่าเปลี่ยน role มีผลทันที (DB lookup) ไม่ต้อง re-login; Supabase Auth (login/reset password/verify email) ยังใช้ flow เดิม. เพิ่ม `SUPABASE_SERVICE_ROLE_KEY` ใน env section ทั้ง local + Vercel (server-only, ห้าม `NEXT_PUBLIC_*`, dev/prod คนละ key)
+  - [x] CLAUDE.md: อัปเดต project structure (`admin/users/`, `lib/rbac/`, `supabase/rbac/rbac.sql`; note `lib/roles.ts`+`lib/supabase/guards.ts` ถูกลบ) + data/security model (permission-based RBAC, service_role write path, menu RLS gate) + deployment env note
+  - [x] ~~ยืนยัน `supabase/schema.sql` snapshot ตรงกับ migration ล่าสุด~~ — **done-with-caveat:** regen ทำไม่ได้ (ต้องใช้ Docker ซึ่งเครื่องนี้ปิด). แทนที่จะเสี่ยง truncate ไฟล์ → คงไฟล์เดิมไว้ (336 บรรทัด, intact) + เพิ่ม comment หัวไฟล์ระบุชัดว่า snapshot ตามหลัง migration Phase 5 (`20260602010000`, `20260602020000`) และต้อง regen ด้วย `npx supabase db dump --linked -f supabase/schema.sql` เมื่อ Docker พร้อม. migration + `rbac.sql` เป็น source of truth ระหว่างนี้
+  - [x] **decision (เลือกแล้ว):** **คง `app_metadata.role` ไว้ + mark deprecated** — ไม่เขียน migration ลบ (กัน rollback). เขียน note ใน README + CLAUDE.md + ที่นี่ว่า `app_metadata.role` เลิกถูกอ่านตั้งแต่ Phase 5; `user_roles` คือแหล่งความจริงเดียว
+- **Notes:** docs-only — ไม่แตะ logic ของ `.ts`/`.tsx` (verify ด้วย `git status`: เปลี่ยนแค่ README.md / CLAUDE.md / supabase/schema.sql). `npm run lint && npm run build` ผ่าน clean. เอกสารทำให้ Get เอา RBAC (`lib/rbac/` + `supabase/rbac/rbac.sql`) ไปใช้ซ้ำ project Fastwork อื่นได้
 
 ---
 
