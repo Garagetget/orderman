@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-02 (T27 done — server-only service-role admin client + lazy env getter; Get ต้องเพิ่มค่า SUPABASE_SERVICE_ROLE_KEY ใน .env.local/Vercel เอง)
+> Last updated: 2026-06-02 (T28 done — permission-based guard + proxy cutover จาก role-in-JWT → DB permission; menu/category write RLS อิง auth_has_permission('menu.manage'); migration `20260602020000` applied to dev; ลบ lib/roles.ts + lib/supabase/guards.ts. pending: regen schema.sql (Docker))
 
 ---
 
@@ -84,21 +84,21 @@ _(none)_
 - **Notes:** `@supabase/supabase-js` มีอยู่แล้ว ไม่ต้องลง package ใหม่. admin client ใช้เฉพาะใน user-management actions (T29) — ไม่ใช้กับ data path ปกติ. ตัว `lib/rbac/admin.ts` ยังไม่ถูก import จากที่ไหน (จึงไม่โผล่ใน route ของ build) — T29 จะเป็นตัวแรกที่เรียก
 
 ### T28 — Permission-based guard + proxy (cutover จาก role-in-JWT → DB permission)
-- **Priority:** P0 · **Size:** L · **Status:** Todo · **Depends on:** T26
+- **Priority:** P0 · **Size:** L · **Status:** Done (2026-06-02) · **Depends on:** T26
 - **Scope:** `lib/rbac/permissions.ts` (route→permission map + constants), `lib/rbac/guards.ts`, `proxy.ts`, `lib/supabase/proxy.ts`, per-page guards (`app/(app)/dashboard|menu|order|order-history/page.tsx`), `app/(app)/menu/actions.ts` (แทน isOwner ของ T25), `lib/roles.ts` + `lib/supabase/guards.ts` (deprecate/ลบ)
 - **Acceptance:**
-  - [ ] `lib/rbac/permissions.ts`: export permission key constants + `ROUTE_PERMISSIONS` map (`/order`→`order.create`, `/order-history`→`order.history.view`, `/dashboard`→`dashboard.view`, `/menu`→`menu.manage`, `/admin`→`user.manage`). ส่วนนี้ = app-specific config (แยกจาก core guard ที่ generic)
-  - [ ] `lib/rbac/guards.ts`: `getCurrentPermissions()` (RSC/action — เรียก rpc `auth_user_permissions`), `requirePermission(perm)` (redirect `/login` ถ้าไม่ login, redirect หน้าแรกที่มีสิทธิ์ถ้าไม่มี perm), `hasPermission(perm)` (คืน boolean — สำหรับ action)
-  - [ ] `proxy.ts`/`lib/supabase/proxy.ts`: หลัง `getUser()` map path→required permission แล้ว gate ด้วย rpc `auth_has_permission(perm)` ที่ edge; ไม่มีสิทธิ์ → redirect ไปหน้าที่เข้าได้ (เช่น `/order`); ลบการอ่าน `roleFromMetadata(app_metadata)`
-  - [ ] per-page server guard: `/dashboard` + `/menu` เปลี่ยน `requireOwner()` → `requirePermission("dashboard.view")` / `requirePermission("menu.manage")`; `/order` + `/order-history` เพิ่ม `requirePermission(...)` ตาม perm
-  - [ ] menu/category actions: `isOwner()` ของ T25 → `hasPermission("menu.manage")` (คืน `{ ok:false, error:"ไม่มีสิทธิ์" }` เมื่อไม่มี); **verify:** session staff เรียก `createMenu` ตรง ๆ → ถูกปฏิเสธ
-  - [ ] **RLS defense-in-depth:** migration เพิ่ม/แก้ write policy ของ `menus` + `categories` ให้ `INSERT/UPDATE/DELETE` ผ่านเฉพาะเมื่อ `auth_has_permission('menu.manage')` (คง `SELECT using(true)` — staff ต้องอ่านเมนูหน้า order). regenerate `schema.sql`
-  - [ ] `app-nav.tsx` ซ่อนลิงก์ตาม permission ที่ user มี (staff ไม่เห็น dashboard/menu/admin)
-  - [ ] ลบ/deprecate `lib/roles.ts` (`roleFromMetadata`, `OWNER_ONLY_PREFIXES`) + `requireOwner()` เมื่อไม่มีที่เรียกแล้ว
-  - [ ] **verify ไม่ lockout:** owner เดิม (backfill จาก T26) เข้าได้ทุกหน้า; staff เข้าได้แค่ order + history โดยไม่ต้อง re-login (DB lookup มีผลทันที)
-  - [ ] `npm run lint && npm run build` ผ่าน clean
-- **⚠️ ลำดับ go-live:** T26 migration (พร้อม backfill) ต้อง **apply ก่อน** code นี้ deploy. dev: push migration → test → ค่อย deploy code. prod: merge `main` → push migration prod → redeploy
-- **Notes:** นี่คือจุด cutover — หลัง item นี้ `app_metadata.role` เลิกถูกอ่าน (แต่ยังไม่ลบทิ้งจาก DB). proxy ทำ rpc 1 ครั้งต่อ request ตาม decision ที่เลือก
+  - [x] `lib/rbac/permissions.ts`: export permission key constants (`PERMISSIONS`) + `ROUTE_PERMISSIONS` map (ordered, `/order-history` ก่อน `/order`) + helper `requiredPermissionForPath()`. ส่วนนี้ = app-specific config (แยกจาก core guard ที่ generic)
+  - [x] `lib/rbac/guards.ts`: `getCurrentPermissions()` (RSC/action — เรียก rpc `auth_user_permissions`), `requirePermission(perm)` (redirect `/login` ถ้าไม่ login, redirect `/order` ถ้าไม่มี perm), `hasPermission(perm)` (คืน boolean — สำหรับ action). RPC ยังไม่อยู่ใน generated types (snapshot ยังไม่ regen เพราะไม่มี Docker) → cast `supabase.rpc as any` แบบ localized พร้อม comment
+  - [x] `lib/supabase/proxy.ts`: หลัง `getUser()` map path→required permission ด้วย `requiredPermissionForPath()` แล้ว gate ด้วย rpc `auth_has_permission(perm)` ที่ edge; ไม่มีสิทธิ์ → redirect `/order`; ลบการอ่าน `roleFromMetadata(app_metadata)`. `proxy.ts` (entry) ไม่ต้องแก้ — delegate ไป `updateSession` อยู่แล้ว
+  - [x] per-page server guard: `/dashboard` + `/menu` เปลี่ยน `requireOwner()` → `requirePermission(DASHBOARD_VIEW)` / `requirePermission(MENU_MANAGE)`; `/order` + `/order-history` เพิ่ม `requirePermission(...)` ตาม perm
+  - [x] menu/category actions (6 ตัว): `isOwner()` ของ T25 → `hasPermission(MENU_MANAGE)` (คืน `{ ok:false, error:"ไม่มีสิทธิ์" }` เมื่อไม่มี); คง `requireUser()` login check
+  - [x] **RLS defense-in-depth:** migration `20260602020000_rbac_menu_write_policies.sql` split policy `menus` + `categories`: คง `select using(true)` + `insert/update/delete` ผ่านเฉพาะเมื่อ `auth_has_permission('menu.manage')`. idempotent, applied to **dev** แล้ว. `orders`/`order_items` ไม่แตะ
+  - [x] `app-nav.tsx` ซ่อนลิงก์ตาม permission (รับ `permissions: string[]` จาก layout ผ่าน `getCurrentPermissions()`); staff ไม่เห็น dashboard/menu; เผื่อ link `/admin` (T29) ไว้แล้วผูกกับ `user.manage`
+  - [x] ลบ `lib/roles.ts` + `lib/supabase/guards.ts` ทั้งไฟล์ (grep ยืนยันไม่มี code อ้างถึง `roleFromMetadata`/`requireOwner`/`isOwner` แล้ว)
+  - [x] **verify ไม่ lockout (code trace):** owner (ทุก perm จาก backfill T26) เข้าได้ทุกหน้า + menu actions ผ่าน; staff (order.create + order.history.view) โดน redirect จาก /dashboard+/menu ทั้ง proxy + page, menu actions คืน "ไม่มีสิทธิ์", nav ซ่อนลิงก์ — ทั้งหมดมาจาก DB lookup จึงไม่ต้อง re-login
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **⚠️ ลำดับ go-live (ยังคงไว้ตอน merge `main`):** T26 migration (พร้อม backfill) + `20260602020000` ต้อง **apply ก่อน** code นี้ deploy. dev: push migration → test → deploy code ✅ (dev). prod: merge `main` → push migration prod → redeploy
+- **Notes:** จุด cutover — `app_metadata.role` เลิกถูกอ่านแล้ว (ยังไม่ลบจาก DB, เก็บเผื่อ rollback). proxy ทำ rpc 1 ครั้ง/request ตาม decision. **pending:** regen `supabase/schema.sql` snapshot (ต้องใช้ Docker — เครื่องนี้ปิด); migration เป็น source of truth
 
 ### T29 — หน้า /admin/users + user-management server actions
 - **Priority:** P1 · **Size:** L · **Status:** Todo · **Depends on:** T26, T27, T28
