@@ -65,7 +65,9 @@ create table if not exists public.orders (
 create table if not exists public.order_items (
   id          uuid primary key default gen_random_uuid(),
   order_id    uuid not null references public.orders(id) on delete cascade,
-  menu_id     uuid not null references public.menus(id),
+  -- NULL for a manual (off-menu) line; then custom_name holds the typed name.
+  menu_id     uuid references public.menus(id),
+  custom_name text,
   quantity    integer not null check (quantity > 0),
   -- Charged price per unit, surcharge included when is_special is true.
   price       numeric(10, 2) not null check (price >= 0),
@@ -75,6 +77,21 @@ create table if not exists public.order_items (
 -- Idempotent upgrade for databases created before is_special existed.
 alter table public.order_items
   add column if not exists is_special boolean not null default false;
+
+-- Idempotent upgrade for the manual-line columns (T17).
+alter table public.order_items alter column menu_id drop not null;
+alter table public.order_items add column if not exists custom_name text;
+
+-- A line is EITHER a menu line (menu_id set, custom_name null) or a manual line
+-- (menu_id null, non-blank custom_name, never พิเศษ).
+alter table public.order_items
+  drop constraint if exists order_items_line_kind_check;
+alter table public.order_items
+  add constraint order_items_line_kind_check check (
+    (menu_id is not null and custom_name is null)
+    or (menu_id is null and custom_name is not null
+        and btrim(custom_name) <> '' and is_special = false)
+  );
 
 create index if not exists menus_category_idx       on public.menus(category);
 create index if not exists order_items_order_id_idx on public.order_items(order_id);
@@ -112,10 +129,13 @@ create policy "authenticated full access" on public.order_items
 
 -- ---------- create_order() ----------
 -- Inserts one order + N order_items atomically in a single transaction.
--- Each line price is snapshotted from the menus table SERVER-SIDE, so a
--- tampered client payload cannot change what the customer is charged.
--- p_items: jsonb array of objects
---   { "menu_id": <uuid>, "quantity": <int>, "is_special": <bool, optional> }
+-- A menu line's price is snapshotted from the menus table SERVER-SIDE, so a
+-- tampered client payload cannot change what the customer is charged. A manual
+-- (off-menu) line has no menus row, so its price necessarily comes from the
+-- client — it is validated as a non-negative number.
+-- p_items: jsonb array of objects, each one of:
+--   menu line:   { "menu_id": <uuid>, "quantity": <int>, "is_special": <bool?> }
+--   manual line: { "custom_name": <text>, "price": <num>, "quantity": <int> }
 
 create or replace function public.create_order(p_note text, p_items jsonb)
 returns uuid
@@ -131,6 +151,7 @@ declare
   v_is_special boolean;
   v_price      numeric(10, 2);
   v_surcharge  numeric(10, 2);
+  v_name       text;
 begin
   if p_items is null
      or jsonb_typeof(p_items) <> 'array'
@@ -144,34 +165,55 @@ begin
 
   for v_item in select * from jsonb_array_elements(p_items)
   loop
-    v_menu_id    := (v_item ->> 'menu_id')::uuid;
-    v_qty        := (v_item ->> 'quantity')::integer;
-    v_is_special := coalesce((v_item ->> 'is_special')::boolean, false);
+    v_menu_id := nullif(v_item ->> 'menu_id', '')::uuid;
+    v_qty     := (v_item ->> 'quantity')::integer;
 
     if v_qty is null or v_qty < 1 then
-      raise exception 'Invalid quantity for menu %', v_menu_id;
+      raise exception 'Invalid quantity';
     end if;
 
-    -- Trust the database, not the client, for both price and surcharge.
-    select price, special_surcharge into v_price, v_surcharge
-    from public.menus
-    where id = v_menu_id and is_available = true;
-
-    if v_price is null then
-      raise exception 'Menu % not found or unavailable', v_menu_id;
-    end if;
-
-    if v_is_special then
-      if v_surcharge is null then
-        raise exception 'Menu % has no พิเศษ option', v_menu_id;
+    if v_menu_id is null then
+      -- Manual (off-menu) line: name + price come from the client.
+      v_name := btrim(coalesce(v_item ->> 'custom_name', ''));
+      if v_name = '' then
+        raise exception 'Manual item requires a name';
       end if;
-      v_price := v_price + v_surcharge;
+
+      v_price := (v_item ->> 'price')::numeric;
+      if v_price is null or v_price < 0 then
+        raise exception 'Invalid price for manual item';
+      end if;
+
+      insert into public.order_items
+        (order_id, menu_id, custom_name, quantity, price, is_special)
+      values (v_order_id, null, v_name, v_qty, v_price, false);
+
+      v_total := v_total + v_price * v_qty;
+    else
+      -- Menu line: trust the database, not the client, for price + surcharge.
+      v_is_special := coalesce((v_item ->> 'is_special')::boolean, false);
+
+      select price, special_surcharge into v_price, v_surcharge
+      from public.menus
+      where id = v_menu_id and is_available = true;
+
+      if v_price is null then
+        raise exception 'Menu % not found or unavailable', v_menu_id;
+      end if;
+
+      if v_is_special then
+        if v_surcharge is null then
+          raise exception 'Menu % has no พิเศษ option', v_menu_id;
+        end if;
+        v_price := v_price + v_surcharge;
+      end if;
+
+      insert into public.order_items
+        (order_id, menu_id, custom_name, quantity, price, is_special)
+      values (v_order_id, v_menu_id, null, v_qty, v_price, v_is_special);
+
+      v_total := v_total + v_price * v_qty;
     end if;
-
-    insert into public.order_items (order_id, menu_id, quantity, price, is_special)
-    values (v_order_id, v_menu_id, v_qty, v_price, v_is_special);
-
-    v_total := v_total + v_price * v_qty;
   end loop;
 
   update public.orders set total = v_total where id = v_order_id;

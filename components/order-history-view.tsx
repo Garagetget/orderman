@@ -218,10 +218,15 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                           )}
                         >
                           <td className="py-1.5">
-                            {item.menus?.name ?? "—"}
+                            {item.menus?.name ?? item.custom_name ?? "—"}
                             {item.is_special && (
                               <span className="ml-1 text-xs font-medium text-primary">
                                 (พิเศษ)
+                              </span>
+                            )}
+                            {!item.menus && item.custom_name && (
+                              <span className="ml-1 text-xs font-light text-secondary">
+                                (นอกเมนู)
                               </span>
                             )}
                           </td>

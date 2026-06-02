@@ -87,7 +87,9 @@ export type Database = {
         Row: {
           id: string;
           order_id: string;
-          menu_id: string;
+          // NULL for a manual (off-menu) line — custom_name holds the name then.
+          menu_id: string | null;
+          custom_name: string | null;
           quantity: number;
           price: number;
           is_special: boolean;
@@ -95,7 +97,8 @@ export type Database = {
         Insert: {
           id?: string;
           order_id: string;
-          menu_id: string;
+          menu_id?: string | null;
+          custom_name?: string | null;
           quantity: number;
           price: number;
           is_special?: boolean;
@@ -103,7 +106,8 @@ export type Database = {
         Update: {
           id?: string;
           order_id?: string;
-          menu_id?: string;
+          menu_id?: string | null;
+          custom_name?: string | null;
           quantity?: number;
           price?: number;
           is_special?: boolean;

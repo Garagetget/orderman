@@ -43,7 +43,7 @@ export function MenuSalesTable({
             </li>
             {rows.map((row, index) => (
               <li
-                key={row.menu_id}
+                key={row.key}
                 className="flex items-center gap-3 py-3 text-sm"
               >
                 <span className="w-6 tabular-nums text-secondary">

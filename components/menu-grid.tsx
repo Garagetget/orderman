@@ -52,10 +52,14 @@ export function MenuGrid({
               {items.map((menu) => {
                 const specialSelected =
                   menu.special_surcharge != null &&
-                  (selectedIds?.has(cartLineId({ menu, isSpecial: true })) ??
+                  (selectedIds?.has(
+                    cartLineId({ kind: "menu", menu, isSpecial: true }),
+                  ) ??
                     false);
                 const selected =
-                  (selectedIds?.has(cartLineId({ menu, isSpecial: false })) ??
+                  (selectedIds?.has(
+                    cartLineId({ kind: "menu", menu, isSpecial: false }),
+                  ) ??
                     false) || specialSelected;
 
                 return (

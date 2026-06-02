@@ -20,12 +20,12 @@ export default async function DashboardPage() {
       .gte("created_at", since)
       .order("created_at", { ascending: true }),
     // Per-menu breakdown (T14). Inner-join orders for the same status/time
-    // filter and menus for the current name; group + bucket happens client-side
-    // in lib/sales so it stays in sync with the cards' active period.
+    // filter; left-join menus (manual lines have no menu_id). Grouping +
+    // bucketing happens client-side in lib/sales, in sync with the cards' period.
     supabase
       .from("order_items")
       .select(
-        "quantity, price, menu_id, menus!inner(name), orders!inner(created_at, status)",
+        "quantity, price, menu_id, custom_name, menus(name), orders!inner(created_at, status)",
       )
       .eq("orders.status", "completed")
       .gte("orders.created_at", since),
@@ -34,13 +34,18 @@ export default async function DashboardPage() {
   const { data: orders, error } = ordersResult;
   const { data: itemRows, error: itemsError } = itemsResult;
 
-  const items: SalesItem[] = (itemRows ?? []).map((row) => ({
-    created_at: row.orders.created_at,
-    menu_id: row.menu_id,
-    name: row.menus.name,
-    quantity: row.quantity,
-    price: row.price,
-  }));
+  const items: SalesItem[] = (itemRows ?? []).map((row) => {
+    const isManual = row.menu_id === null;
+    return {
+      created_at: row.orders.created_at,
+      key: isManual ? `manual:${row.custom_name}` : row.menu_id!,
+      name: isManual
+        ? (row.custom_name ?? "รายการอื่น")
+        : (row.menus?.name ?? "—"),
+      quantity: row.quantity,
+      price: row.price,
+    };
+  });
 
   return (
     <div>

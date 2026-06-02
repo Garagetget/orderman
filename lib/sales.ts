@@ -97,9 +97,10 @@ export function summarize(
 export type SalesItem = {
   // The parent order's timestamp — order_items has no created_at of its own.
   created_at: string;
-  menu_id: string;
-  // Current menu name, not the order-time snapshot, so a later rename is
-  // reflected (order_items stores no name — only menu_id + price).
+  // Group key: the menu id, or `manual:<name>` for an off-menu line.
+  key: string;
+  // Current menu name (so a later rename shows through), or the manual line's
+  // typed name. order_items stores only menu_id + price for menu lines.
   name: string;
   quantity: number;
   // Snapshotted unit price (surcharge already included for พิเศษ lines).
@@ -107,7 +108,7 @@ export type SalesItem = {
 };
 
 export type MenuSalesRow = {
-  menu_id: string;
+  key: string;
   name: string;
   quantity: number;
   revenue: number;
@@ -124,13 +125,13 @@ export function summarizeByMenu(
     if (t < range.startMs || t > range.endMs) continue;
 
     const revenue = item.price * item.quantity;
-    const existing = byMenu.get(item.menu_id);
+    const existing = byMenu.get(item.key);
     if (existing) {
       existing.quantity += item.quantity;
       existing.revenue += revenue;
     } else {
-      byMenu.set(item.menu_id, {
-        menu_id: item.menu_id,
+      byMenu.set(item.key, {
+        key: item.key,
         name: item.name,
         quantity: item.quantity,
         revenue,
