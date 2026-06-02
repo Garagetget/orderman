@@ -18,14 +18,16 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: true });
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">สรุปยอดขาย</p>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold">สรุปยอดขาย</h1>
+        <p className="mt-1 text-sm text-secondary">
+          ยอดขายรวมตามช่วงเวลา (นับเฉพาะออเดอร์ที่สำเร็จ)
+        </p>
       </div>
 
       {error ? (
-        <p className="text-sm text-destructive">
+        <p className="text-sm text-danger">
           โหลดข้อมูลไม่สำเร็จ: {error.message}
         </p>
       ) : (

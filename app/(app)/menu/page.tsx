@@ -1,31 +1,32 @@
-import { OrderTaker } from "@/components/order-taker";
+import { MenuManager } from "@/components/menu-manager";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrderPage() {
+export default async function MenuPage() {
   const supabase = await createClient();
+  // Unlike the order page, show ALL menus here (including disabled ones) so the
+  // owner can re-enable them.
   const [menusRes, categoriesRes] = await Promise.all([
     supabase
       .from("menus")
       .select("*")
-      .eq("is_available", true)
       .order("name", { ascending: true }),
     supabase
       .from("categories")
-      .select("name")
+      .select("*")
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
   ]);
   const { data: menus, error } = menusRes;
-  const categoryOrder = (categoriesRes.data ?? []).map((c) => c.name);
+  const categories = categoriesRes.data ?? [];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">จดออเดอร์</h1>
+        <h1 className="text-2xl font-semibold">จัดการเมนู</h1>
         <p className="mt-1 text-sm text-secondary">
-          แตะเมนูเพื่อเพิ่มลงออเดอร์ แล้วกดบันทึก
+          เพิ่ม แก้ไข หรือปิด/เปิดเมนู — เมนูที่ปิดจะไม่แสดงในหน้าจดออเดอร์
         </p>
       </div>
 
@@ -34,7 +35,7 @@ export default async function OrderPage() {
           โหลดเมนูไม่สำเร็จ: {error.message}
         </p>
       ) : (
-        <OrderTaker menus={menus ?? []} categoryOrder={categoryOrder} />
+        <MenuManager menus={menus ?? []} categories={categories} />
       )}
     </div>
   );

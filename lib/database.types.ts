@@ -9,12 +9,29 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type MenuCategory = "อาหาร" | "เครื่องดื่ม" | "ของเพิ่ม";
+// Categories are user-managed now (the categories table is the source of truth),
+// so this is an open string rather than a fixed union.
+export type MenuCategory = string;
 export type OrderStatus = "completed" | "pending" | "cancelled";
 
 export type Database = {
   public: {
     Tables: {
+      categories: {
+        Row: {
+          name: string;
+          sort_order: number;
+        };
+        Insert: {
+          name: string;
+          sort_order?: number;
+        };
+        Update: {
+          name?: string;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
       menus: {
         Row: {
           id: string;
@@ -123,6 +140,7 @@ export type Database = {
   };
 };
 
+export type Category = Database["public"]["Tables"]["categories"]["Row"];
 export type Menu = Database["public"]["Tables"]["menus"]["Row"];
 export type Order = Database["public"]["Tables"]["orders"]["Row"];
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];

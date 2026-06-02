@@ -73,6 +73,16 @@ Before any `db push`, Claude must:
 Running the app does NOT use `link` — it reads `.env.local` (dev) / Vercel env (prod). Link
 only decides where `db push` lands.
 
+## Deployment
+- prod runs on **Vercel**, pointed at the **prod** Supabase project via Vercel env vars
+  (Settings → Environment Variables, scope **Production**):
+  - `NEXT_PUBLIC_SUPABASE_URL` = `https://jtjevgotgajdulkyikkj.supabase.co`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the **anon** key of `orderman-prod` (never service_role)
+- dev never touches Vercel prod — it reads `.env.local` (the dev project) locally
+- env changes don't apply to the live deployment until a **Redeploy** (or a new push)
+- after changing the DB schema on `main`/prod, smoke-test by logging into the deployed app and
+  checking the menu grid loads (covers schema + seed + RLS + RPC at once)
+
 ## Data & security model (non-negotiable)
 - **RLS is on for every table.** Anonymous clients see nothing. Don't write queries that assume open access.
 - **Price snapshot is server-side.** `order_items.price` is filled by the `create_order()` Postgres function looking up `menus.price` (+ `special_surcharge` when `is_special`) — a tampered client payload **cannot** change what the customer is charged. Do not bypass the RPC.
@@ -85,10 +95,13 @@ only decides where `db push` lands.
 ## Conventions specific to this project
 - Component files: kebab-case (`menu-grid.tsx`, `sales-chart.tsx`)
 - React Server Components by default; `"use client"` only when needed (interactivity, hooks, Recharts)
-- Menu categories are a fixed enum: `อาหาร`, `เครื่องดื่ม`, and `ของเพิ่ม` — keep Thai strings as-is, don't translate to English
+- Menu categories are **user-managed** (T18): the `categories` table (`name` PK, `sort_order`) is the source of truth, edited from the `/menu` UI. `menus.category` is an FK to `categories.name` (`on update cascade` so a rename propagates, `on delete restrict` so an in-use category can't be deleted). Seed defaults are `อาหาร`, `เครื่องดื่ม`, `ของเพิ่ม` — keep Thai strings as-is, don't translate. `MenuCategory` is now `string`, not a fixed union
 - Order status (`completed` | `pending` | `cancelled`) defaults to `'completed'`. No `pending` UI exists yet; `cancelled` is set from order history (T12) and excluded from the dashboard
 - IDs in [BACKLOG.md](BACKLOG.md) are stable (`T1`, `T2`, …) — never reuse, even after deletion
 - Use `buttonVariants()` on `<Link>` for nav links — the base-nova `Button` has no `asChild` prop
+
+## Design Rules
+ดู @DESIGN.md — ต้อง follow ทุกครั้งที่สร้าง/แก้ UI (color palette, typography, spacing, component patterns)
 
 ## Git workflow (Claude Code must follow)
 1. **Before any code change:** `git checkout develop || git checkout -b develop` — never commit directly to `main`
@@ -105,7 +118,7 @@ only decides where `db push` lands.
 
 ## Don't (project-specific)
 - Don't add OAuth, magic links, or a sign-up page — users are provisioned in the Supabase dashboard
-- Don't change menu categories without updating the DB CHECK constraint (new migration in `supabase/migrations/`)
+- Don't reintroduce a hardcoded category list/CHECK — categories live in the `categories` table now (manage via the `/menu` UI or a new migration)
 - Don't bucket sales by server-local time — always UTC+7
 - Don't hand-edit the DB outside a migration — every schema change is a new file in `supabase/migrations/` applied with `db push`; keep each migration idempotent and regenerate `schema.sql` afterward
 - Don't install new packages without asking

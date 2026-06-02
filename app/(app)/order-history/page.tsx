@@ -13,14 +13,14 @@ export default async function OrderHistoryPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">ประวัติออเดอร์</h1>
-        <p className="text-sm text-muted-foreground">รายการออเดอร์ทั้งหมด</p>
+    <div className="space-y-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold">ประวัติออเดอร์</h1>
+        <p className="mt-1 text-sm text-secondary">รายการออเดอร์ทั้งหมด</p>
       </div>
 
       {error ? (
-        <p className="text-sm text-destructive">
+        <p className="text-sm text-danger">
           โหลดข้อมูลไม่สำเร็จ: {error.message}
         </p>
       ) : (

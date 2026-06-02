@@ -55,16 +55,16 @@ export function OrderCart({
   const isEmpty = lines.length === 0;
 
   return (
-    <Card>
+    <Card className="rounded-xl border-border shadow-sm">
       <CardHeader>
-        <CardTitle>ออเดอร์ปัจจุบัน</CardTitle>
+        <CardTitle className="text-lg font-semibold">ออเดอร์ปัจจุบัน</CardTitle>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {isEmpty ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
-            <ShoppingCart className="size-8 opacity-40" />
-            <p className="text-center text-sm">ยังไม่มีรายการ — แตะเมนูเพื่อเพิ่ม</p>
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <ShoppingCart className="size-12 text-secondary opacity-50" />
+            <p className="text-sm text-secondary">ยังไม่มีรายการ — แตะเมนูเพื่อเพิ่ม</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -79,12 +79,12 @@ export function OrderCart({
                     <p className="truncate text-sm font-medium">
                       {menu.name}
                       {isSpecial && (
-                        <span className="ml-1 text-xs font-medium text-primary">
-                          (พิเศษ)
+                        <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          พิเศษ
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs tabular-nums text-secondary">
                       {formatBaht(unitPrice)}
                     </p>
                   </div>
@@ -123,7 +123,7 @@ export function OrderCart({
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="size-7 text-muted-foreground hover:text-destructive"
+                    className="size-7 text-secondary hover:text-danger"
                     onClick={() => onChangeQuantity(lineId, 0)}
                     aria-label="ลบรายการ"
                   >
@@ -149,29 +149,28 @@ export function OrderCart({
       <CardFooter className="flex-col gap-3">
         <Separator />
         <div className="flex w-full items-center justify-between">
-          <span className="text-sm text-muted-foreground">ยอดรวม</span>
-          <span className="text-xl font-bold tabular-nums text-primary">
+          <span className="text-sm text-secondary">ยอดรวม</span>
+          <span className="text-2xl font-bold tabular-nums text-primary">
             {formatBaht(total)}
           </span>
         </div>
         <div className="flex w-full gap-2">
-          <Button
+          <button
             type="button"
-            variant="outline"
-            className="flex-1"
+            className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium transition-all duration-150 hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
             onClick={onClear}
             disabled={isEmpty || saving}
           >
             ล้าง
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
-            className="flex-1"
+            className="flex-1 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50"
             onClick={onSave}
             disabled={isEmpty || saving}
           >
             {saving ? "กำลังบันทึก..." : "บันทึกออเดอร์"}
-          </Button>
+          </button>
         </div>
       </CardFooter>
     </Card>
