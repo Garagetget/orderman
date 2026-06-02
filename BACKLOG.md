@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-02 (เพิ่ม Phase 5 — Custom portable RBAC: T26–T30; T25 = stopgap ก่อน RBAC)
+> Last updated: 2026-06-02 (T25 done — app-layer owner guard บน menu/category actions; RLS write-policy เลื่อนไป T28)
 
 ---
 
@@ -18,14 +18,14 @@ _(none)_
 ## To Do — Phase 4 (Security Hardening)
 
 ### T25 — ปิดช่องโหว่ owner-only ที่ระดับ server action + RLS
-- **Priority:** P0 · **Size:** S–M · **Status:** Todo · **Depends on:** T16
+- **Priority:** P0 · **Size:** S–M · **Status:** Done (2026-06-02) · **Depends on:** T16
 - **ที่มา:** code review T16 (2026-06-02) — proxy + `requireOwner()` กั้นเฉพาะ "หน้า" แต่ menu/category server actions เช็คแค่ `requireUser()` (login) ไม่เช็ค role; RLS เป็น `for all to authenticated using (true)` ทุกตาราง. ผล: staff (login อยู่) เรียก action ตรงๆ เพื่อ **เพิ่ม/แก้/ลบเมนู + หมวดหมู่** ได้ ทั้งที่ T16 บอกว่า staff ถูกบล็อกจาก `/menu`
 - **Acceptance:**
-  - [ ] เพิ่ม guard แบบ return boolean (เช่น `isOwner()` ใน `lib/supabase/guards.ts`) — ไม่ `redirect()` เพราะเรียกจากใน action
-  - [ ] `createMenu` / `updateMenu` / `setMenuAvailability` / `createCategory` / `renameCategory` / `deleteCategory` คืน `{ ok: false, error: "ไม่มีสิทธิ์" }` เมื่อผู้เรียกไม่ใช่ owner (verify โดย call action ตรงด้วย session ที่ `app_metadata.role = "staff"` → ต้องถูกปฏิเสธ)
-  - [ ] owner ยังเพิ่ม/แก้/ลบเมนู + หมวดหมู่ได้ตามปกติ
-  - [ ] (defense ลึก, แนะนำ) RLS write policy ของ `menus` + `categories` จำกัด `INSERT/UPDATE/DELETE` เฉพาะ role ที่ไม่ใช่ staff — `((select auth.jwt() -> 'app_metadata' ->> 'role') is distinct from 'staff')`; คง `SELECT using (true)` ไว้ (staff ต้องอ่านเมนูในหน้าจดออเดอร์). ถ้าทำข้อนี้ → migration ใหม่ใน `supabase/migrations/` + regenerate `schema.sql` + `npm run db:push` (Get รันเอง, dev ก่อน แล้ว prod ตอน merge)
-  - [ ] `npm run lint && npm run build` ผ่าน clean
+  - [x] เพิ่ม guard แบบ return boolean (เช่น `isOwner()` ใน `lib/supabase/guards.ts`) — ไม่ `redirect()` เพราะเรียกจากใน action
+  - [x] `createMenu` / `updateMenu` / `setMenuAvailability` / `createCategory` / `renameCategory` / `deleteCategory` คืน `{ ok: false, error: "ไม่มีสิทธิ์" }` เมื่อผู้เรียกไม่ใช่ owner (verify โดย call action ตรงด้วย session ที่ `app_metadata.role = "staff"` → ต้องถูกปฏิเสธ)
+  - [x] owner ยังเพิ่ม/แก้/ลบเมนู + หมวดหมู่ได้ตามปกติ
+  - [ ] ~~(defense ลึก, แนะนำ) RLS write policy ของ `menus` + `categories`~~ — **เลื่อนไป T28 โดยตั้งใจ**: Phase 5 (T28) จะแทนด้วย RLS write policy แบบ RBAC ที่ generic กว่า (`auth_has_permission('menu.manage')`) จึงไม่สร้าง migration ใน T25 เพื่อเลี่ยงงานซ้ำ/ถูก revert
+  - [x] `npm run lint && npm run build` ผ่าน clean
 - **Notes:** ฝั่ง dashboard ไม่ต้องแก้ — ข้อมูลยอดขายอ่านใน RSC ที่ gate ด้วย `requireOwner()` อยู่แล้ว ไม่มี action ตัวไหน expose ออกมา. order/order-history actions เปิดให้ staff ใช้ได้ (intended) — อย่าเผลอ gate
 - **⚠️ stopgap ก่อน Phase 5:** T25 เป็นด่านปิดช่องโหว่ที่ live อยู่ตอนนี้ — **ทำก่อน** RBAC. พอ Phase 5 เสร็จ (T28) guard ระดับ action จะถูกแทนด้วย `hasPermission("menu.manage")` และ RLS write policy จะถูกแทนด้วยเวอร์ชัน RBAC ที่ generic กว่า. เขียน `isOwner()` ใน T25 ให้ตรงไปตรงมา ไม่ต้อง over-engineer เพราะจะถูก refactor ใน T28
 
