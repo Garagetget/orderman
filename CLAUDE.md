@@ -100,6 +100,9 @@ only decides where `db push` lands.
 - IDs in [BACKLOG.md](BACKLOG.md) are stable (`T1`, `T2`, …) — never reuse, even after deletion
 - Use `buttonVariants()` on `<Link>` for nav links — the base-nova `Button` has no `asChild` prop
 
+## Design Rules
+ดู @DESIGN.md — ต้อง follow ทุกครั้งที่สร้าง/แก้ UI (color palette, typography, spacing, component patterns)
+
 ## Git workflow (Claude Code must follow)
 1. **Before any code change:** `git checkout develop || git checkout -b develop` — never commit directly to `main`
 2. **Commit often, small units.** Message format: `type(BACKLOG_ID): description`
