@@ -21,16 +21,16 @@ export default async function OrderPage() {
   const categoryOrder = (categoriesRes.data ?? []).map((c) => c.name);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">จดออเดอร์</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-semibold">จดออเดอร์</h1>
+        <p className="mt-1 text-sm text-secondary">
           แตะเมนูเพื่อเพิ่มลงออเดอร์ แล้วกดบันทึก
         </p>
       </div>
 
       {error ? (
-        <p className="text-sm text-destructive">
+        <p className="text-sm text-danger">
           โหลดเมนูไม่สำเร็จ: {error.message}
         </p>
       ) : (

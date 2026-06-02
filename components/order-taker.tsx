@@ -35,6 +35,12 @@ export function OrderTaker({
     [cart],
   );
 
+  // Cart-line ids currently in the cart — lets MenuGrid highlight selected cards.
+  const selectedIds = useMemo(
+    () => new Set(cart.map((line) => cartLineId(line))),
+    [cart],
+  );
+
   function addItem(menu: Menu, isSpecial = false) {
     setCart((prev) => {
       const id = cartLineId({ menu, isSpecial });
@@ -89,9 +95,14 @@ export function OrderTaker({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <MenuGrid menus={menus} categoryOrder={categoryOrder} onAdd={addItem} />
-      <div className="lg:sticky lg:top-20 lg:self-start">
+    <div className="grid gap-6 md:grid-cols-[1fr_340px] lg:grid-cols-[1fr_360px]">
+      <MenuGrid
+        menus={menus}
+        categoryOrder={categoryOrder}
+        onAdd={addItem}
+        selectedIds={selectedIds}
+      />
+      <div className="md:sticky md:top-20 md:self-start">
         <OrderCart
           lines={cart}
           total={total}
