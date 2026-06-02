@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-02 (เพิ่ม T25 — ปิดช่องโหว่ role gate ระดับ action/RLS)
+> Last updated: 2026-06-02 (เพิ่ม Phase 5 — Custom portable RBAC: T26–T30; T25 = stopgap ก่อน RBAC)
 
 ---
 
@@ -27,7 +27,107 @@ _(none)_
   - [ ] (defense ลึก, แนะนำ) RLS write policy ของ `menus` + `categories` จำกัด `INSERT/UPDATE/DELETE` เฉพาะ role ที่ไม่ใช่ staff — `((select auth.jwt() -> 'app_metadata' ->> 'role') is distinct from 'staff')`; คง `SELECT using (true)` ไว้ (staff ต้องอ่านเมนูในหน้าจดออเดอร์). ถ้าทำข้อนี้ → migration ใหม่ใน `supabase/migrations/` + regenerate `schema.sql` + `npm run db:push` (Get รันเอง, dev ก่อน แล้ว prod ตอน merge)
   - [ ] `npm run lint && npm run build` ผ่าน clean
 - **Notes:** ฝั่ง dashboard ไม่ต้องแก้ — ข้อมูลยอดขายอ่านใน RSC ที่ gate ด้วย `requireOwner()` อยู่แล้ว ไม่มี action ตัวไหน expose ออกมา. order/order-history actions เปิดให้ staff ใช้ได้ (intended) — อย่าเผลอ gate
+- **⚠️ stopgap ก่อน Phase 5:** T25 เป็นด่านปิดช่องโหว่ที่ live อยู่ตอนนี้ — **ทำก่อน** RBAC. พอ Phase 5 เสร็จ (T28) guard ระดับ action จะถูกแทนด้วย `hasPermission("menu.manage")` และ RLS write policy จะถูกแทนด้วยเวอร์ชัน RBAC ที่ generic กว่า. เขียน `isOwner()` ใน T25 ให้ตรงไปตรงมา ไม่ต้อง over-engineer เพราะจะถูก refactor ใน T28
 
+---
+
+## To Do — Phase 5 (Custom Portable RBAC / User Management)
+
+> **เป้าหมาย:** ย้าย user management จาก "ตั้ง role ผ่าน Supabase dashboard/SQL" → RBAC layer
+> ของเราเองในแอป ที่ **portable ข้าม project**. คง Supabase Auth เป็น identity provider เดิม
+> (login/session/JWT/password reset ไม่แตะ) — เพิ่มแค่ชั้น authorization.
+>
+> **Design decisions (Get, 2026-06-02):**
+> 1. **Permission resolution = query DB ต่อ request** (ไม่ใช้ JWT/Auth Hook). DB (`user_roles` +
+>    `role_permissions`) เป็น source of truth จริง → เปลี่ยน role มีผล **ทันทีไม่ต้อง re-login**.
+>    แลกกับ +1 DB roundtrip ต่อ request (ร้านเดียว traffic ต่ำ = รับได้).
+> 2. **Enforcement = App guard + Postgres RLS** (defense-in-depth). guard/action เช็ค permission
+>    และ RLS write policy บน `menus`/`categories` อิง permission ผ่าน helper `auth_has_permission()`.
+> 3. **เก็บ role ใน `user_roles`** (ไม่ใช่ `app_metadata`). ทุกการ "เขียน" `user_roles`/RBAC config
+>    ผ่าน **service_role admin client ใน server action เท่านั้น** — RLS ปฏิเสธ write จาก
+>    session ปกติทั้งหมด → user แก้สิทธิ์ตัวเองไม่ได้โดยปริยาย.
+>
+> **Portable deliverable:** `lib/rbac/` (โค้ด generic) + `supabase/rbac/rbac.sql` (ก้อน SQL
+> self-contained) — copy 2 ก้อนนี้ไป project อื่นได้ โดยแก้แค่ส่วน "app-specific seed"
+> (รายชื่อ role/permission) + route→permission map.
+>
+> **Permission catalog (orderman):** `order.create` · `order.history.view` · `menu.manage` ·
+> `dashboard.view` · `user.manage`
+> **Roles:** `owner` = ทุก permission · `staff` = `order.create` + `order.history.view`
+>
+> **ลำดับที่ต้องทำ:** T26 → T27 → T28 → T29 → T30 (T26 เป็น foundation ของทุกตัว)
+
+### T26 — RBAC database schema + helper functions + RLS + backfill
+- **Priority:** P0 · **Size:** L · **Status:** Todo · **Depends on:** T25
+- **Scope:** migration ใหม่ใน `supabase/migrations/` + regenerate `supabase/schema.sql` + สร้าง portable `supabase/rbac/rbac.sql`
+- **Acceptance:**
+  - [ ] ตาราง `roles(key text pk, label text)`, `permissions(key text pk, label text, description text)`, `role_permissions(role_key fk→roles, permission_key fk→permissions, pk รวม)`, `user_roles(user_id uuid fk→auth.users on delete cascade, role_key fk→roles, pk รวม)` — รองรับหลาย role/หลาย permission ต่อ user (generic) แม้ orderman ใช้ role เดียว
+  - [ ] helper functions (SECURITY DEFINER, `search_path` ตรึง): `public.auth_has_permission(p_permission text) returns boolean` (เช็ค `auth.uid()` ผ่าน user_roles→role_permissions) และ `public.auth_user_permissions() returns setof text` (list permission ของ user ปัจจุบัน — ให้ guard ดึงครั้งเดียว)
+  - [ ] **RLS:** `roles`/`permissions`/`role_permissions`/`user_roles` เปิด RLS; **SELECT** ได้สำหรับ `authenticated` (ให้ guard resolve ได้); **INSERT/UPDATE/DELETE** ไม่มี policy ให้ `authenticated` (ถูกปฏิเสธทั้งหมด) → เขียนได้เฉพาะ service_role. **verify:** ใช้ session ปกติ (anon key) `insert/update` ลง `user_roles` ของตัวเอง → ถูก RLS ปฏิเสธ
+  - [ ] seed (ส่วน app-specific, แยก section ในไฟล์ให้ชัด): 5 permission + 2 role + role_permissions ตาม catalog ข้างบน (idempotent, `on conflict do nothing`/`do update`)
+  - [ ] **backfill `user_roles` จาก `app_metadata.role` เดิม:** ทุก row ใน `auth.users` → `role:"staff"` ได้ role `staff`, ที่เหลือได้ `owner`. **กัน lockout:** owner เดิมต้องมี row `owner` หลัง migration. ไม่ลบ `app_metadata.role` ทิ้ง (เผื่อ rollback — โค้ดแค่เลิกอ่านมันใน T28)
+  - [ ] `supabase/rbac/rbac.sql` = ก้อน SQL เดียวที่ rerun ได้ (tables + helpers + RLS + seed catalog) คัดลอกไป project อื่นได้ พร้อม comment กำกับว่าส่วนไหนต้องแก้ต่อ project
+  - [ ] regenerate `supabase/schema.sql` snapshot หลัง migration
+- **⚠️ ต้องรัน DB (Get รันเอง):** migration นี้ลง **dev ก่อน** ผ่าน `npm run db:link:dev` + `npm run db:push` (Claude ลองรันให้ก่อน — ถ้า CLI ขอ DB password ค่อยส่งให้ Get รัน). **ห้าม push prod** จนกว่าจะ merge ขึ้น `main`. **ลำดับ deploy สำคัญ:** migration (พร้อม backfill) ต้อง apply **ก่อน** โค้ด guard ใหม่ (T28) go-live — ถ้าโค้ดใหม่ขึ้นก่อนตาราง guard query จะ error = lock ทุกคน
+- **Notes:** helper เป็น SECURITY DEFINER เพื่ออ่าน user_roles ได้แม้ caller ไม่มีสิทธิ์ direct select (และใช้ใน RLS policy ของ menus/categories ใน T28 ได้). อย่าใส่ business logic อื่นในก้อน rbac.sql — ให้มันเป็น auth layer ล้วนๆ เพื่อ portability
+
+### T27 — Service-role admin client + env wiring
+- **Priority:** P0 · **Size:** S–M · **Status:** Todo · **Depends on:** —
+- **Scope:** `lib/rbac/admin.ts`, `lib/supabase/env.ts`, `.env.local.example`, README + Vercel
+- **Acceptance:**
+  - [ ] `lib/rbac/admin.ts` สร้าง admin client ด้วย `service_role` key (`createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })`) — **server-only** (เพิ่ม `import "server-only"` ที่หัวไฟล์ กัน import หลุดไป client bundle)
+  - [ ] `lib/supabase/env.ts` เพิ่ม getter `getServiceRoleKey()` แบบ lazy (required เฉพาะตอนถูกเรียก ไม่ throw ตอน build) อ่าน `SUPABASE_SERVICE_ROLE_KEY` (ชื่อ **ไม่มี** `NEXT_PUBLIC_`)
+  - [ ] `.env.local.example` เพิ่ม `SUPABASE_SERVICE_ROLE_KEY=` พร้อม comment เตือนว่าเป็น secret ฝั่ง server เท่านั้น ห้าม commit ค่าจริง / ห้ามขึ้น `NEXT_PUBLIC_*`
+  - [ ] grep ทั้ง repo ยืนยันว่า `service_role`/`SUPABASE_SERVICE_ROLE_KEY` ไม่ถูก import จาก client component ใด ๆ
+  - [ ] `npm run lint && npm run build` ผ่าน clean (build ต้องไม่ต้องการ service_role key — lazy)
+- **⚠️ ต้องเพิ่ม env var (Get ทำเอง):** `SUPABASE_SERVICE_ROLE_KEY` — **local** ใส่ใน `.env.local` (ค่าของ project **dev**); **Vercel** Settings → Environment Variables scope **Production** ใส่ค่า service_role ของ **orderman-prod** (และ Preview ถ้าใช้ login บน preview). ⚠️ key ของ dev/prod คนละตัว — อย่าสลับ. service_role bypass RLS → ห้ามหลุดไป browser เด็ดขาด
+- **Notes:** `@supabase/supabase-js` มีอยู่แล้ว ไม่ต้องลง package ใหม่. admin client ใช้เฉพาะใน user-management actions (T29) — ไม่ใช้กับ data path ปกติ
+
+### T28 — Permission-based guard + proxy (cutover จาก role-in-JWT → DB permission)
+- **Priority:** P0 · **Size:** L · **Status:** Todo · **Depends on:** T26
+- **Scope:** `lib/rbac/permissions.ts` (route→permission map + constants), `lib/rbac/guards.ts`, `proxy.ts`, `lib/supabase/proxy.ts`, per-page guards (`app/(app)/dashboard|menu|order|order-history/page.tsx`), `app/(app)/menu/actions.ts` (แทน isOwner ของ T25), `lib/roles.ts` + `lib/supabase/guards.ts` (deprecate/ลบ)
+- **Acceptance:**
+  - [ ] `lib/rbac/permissions.ts`: export permission key constants + `ROUTE_PERMISSIONS` map (`/order`→`order.create`, `/order-history`→`order.history.view`, `/dashboard`→`dashboard.view`, `/menu`→`menu.manage`, `/admin`→`user.manage`). ส่วนนี้ = app-specific config (แยกจาก core guard ที่ generic)
+  - [ ] `lib/rbac/guards.ts`: `getCurrentPermissions()` (RSC/action — เรียก rpc `auth_user_permissions`), `requirePermission(perm)` (redirect `/login` ถ้าไม่ login, redirect หน้าแรกที่มีสิทธิ์ถ้าไม่มี perm), `hasPermission(perm)` (คืน boolean — สำหรับ action)
+  - [ ] `proxy.ts`/`lib/supabase/proxy.ts`: หลัง `getUser()` map path→required permission แล้ว gate ด้วย rpc `auth_has_permission(perm)` ที่ edge; ไม่มีสิทธิ์ → redirect ไปหน้าที่เข้าได้ (เช่น `/order`); ลบการอ่าน `roleFromMetadata(app_metadata)`
+  - [ ] per-page server guard: `/dashboard` + `/menu` เปลี่ยน `requireOwner()` → `requirePermission("dashboard.view")` / `requirePermission("menu.manage")`; `/order` + `/order-history` เพิ่ม `requirePermission(...)` ตาม perm
+  - [ ] menu/category actions: `isOwner()` ของ T25 → `hasPermission("menu.manage")` (คืน `{ ok:false, error:"ไม่มีสิทธิ์" }` เมื่อไม่มี); **verify:** session staff เรียก `createMenu` ตรง ๆ → ถูกปฏิเสธ
+  - [ ] **RLS defense-in-depth:** migration เพิ่ม/แก้ write policy ของ `menus` + `categories` ให้ `INSERT/UPDATE/DELETE` ผ่านเฉพาะเมื่อ `auth_has_permission('menu.manage')` (คง `SELECT using(true)` — staff ต้องอ่านเมนูหน้า order). regenerate `schema.sql`
+  - [ ] `app-nav.tsx` ซ่อนลิงก์ตาม permission ที่ user มี (staff ไม่เห็น dashboard/menu/admin)
+  - [ ] ลบ/deprecate `lib/roles.ts` (`roleFromMetadata`, `OWNER_ONLY_PREFIXES`) + `requireOwner()` เมื่อไม่มีที่เรียกแล้ว
+  - [ ] **verify ไม่ lockout:** owner เดิม (backfill จาก T26) เข้าได้ทุกหน้า; staff เข้าได้แค่ order + history โดยไม่ต้อง re-login (DB lookup มีผลทันที)
+  - [ ] `npm run lint && npm run build` ผ่าน clean
+- **⚠️ ลำดับ go-live:** T26 migration (พร้อม backfill) ต้อง **apply ก่อน** code นี้ deploy. dev: push migration → test → ค่อย deploy code. prod: merge `main` → push migration prod → redeploy
+- **Notes:** นี่คือจุด cutover — หลัง item นี้ `app_metadata.role` เลิกถูกอ่าน (แต่ยังไม่ลบทิ้งจาก DB). proxy ทำ rpc 1 ครั้งต่อ request ตาม decision ที่เลือก
+
+### T29 — หน้า /admin/users + user-management server actions
+- **Priority:** P1 · **Size:** L · **Status:** Todo · **Depends on:** T26, T27, T28
+- **Scope:** `app/(app)/admin/users/page.tsx` (+ container component), `app/(app)/admin/users/actions.ts`, `app-nav.tsx`
+- **Acceptance:**
+  - [ ] หน้า `/admin/users` เข้าได้เฉพาะผู้มี `user.manage` (gate ทั้ง proxy + `requirePermission` ใน page); staff โดน redirect
+  - [ ] แสดงรายชื่อ user (email + role ที่ assign) — ดึงผ่าน admin client (`auth.admin.listUsers()` + join `user_roles`)
+  - [ ] เพิ่ม staff ใหม่: กรอก email + password → server action สร้าง auth user (`auth.admin.createUser`, `email_confirm: true`) + assign role ที่เลือก เขียน `user_roles` ผ่าน admin client
+  - [ ] เปลี่ยน role ของ user ที่มีอยู่ (assign/unassign) ผ่าน server action
+  - [ ] ลบ user: `auth.admin.deleteUser` (cascade ลบ `user_roles`)
+  - [ ] **ทุก server action re-check ผู้เรียกมี `user.manage` ก่อนทำงานเสมอ** (ไม่พึ่ง proxy อย่างเดียว) — `{ ok:false, error:"ไม่มีสิทธิ์" }` ถ้าไม่มี
+  - [ ] **กัน lockout/self-escalation:** ห้ามผู้เรียกถอด role `user.manage`/owner ของ **ตัวเอง** และห้ามลบ/ถอด owner คนสุดท้าย (เช็ค count) → ปฏิเสธพร้อมข้อความไทย. **verify:** owner คนเดียวลองถอดสิทธิ์ตัวเอง → ถูกบล็อก
+  - [ ] `app-nav.tsx` โชว์ลิงก์ "จัดการผู้ใช้" เฉพาะผู้มี `user.manage`
+  - [ ] UI ตาม DESIGN.md (layout template, page header, rows `rounded-xl border`, ปุ่มเพิ่ม = primary, ลบ = danger outline, empty state, toast feedback)
+  - [ ] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** ทุก mutation ใช้ admin client (service_role) ฝั่ง server เท่านั้น — client component ส่งแค่ค่า form ผ่าน action, ไม่เคยเห็น service_role key. password ใหม่ส่งผ่าน action over HTTPS; พิจารณา min length validate ฝั่ง server. ไม่ทำ password reset เอง (ใช้ Supabase Auth flow เดิม)
+
+### T30 — Docs + portability packaging + cleanup
+- **Priority:** P2 · **Size:** S–M · **Status:** Todo · **Depends on:** T26, T27, T28, T29
+- **Acceptance:**
+  - [ ] README: แทน section "ตั้ง role ผ่าน SQL Editor" ด้วยวิธีใหม่ — owner เพิ่ม/ลบ staff + assign role จากหน้า `/admin/users` ในแอป (ไม่ต้องเข้า Supabase dashboard อีก)
+  - [ ] README: เพิ่ม section "RBAC module (portable)" — วิธี copy `lib/rbac/` + `supabase/rbac/rbac.sql` ไป project ใหม่, จุดที่ต้องแก้ (permission catalog + route map), และ env `SUPABASE_SERVICE_ROLE_KEY`
+  - [ ] README: ระบุว่าเปลี่ยน role มีผลทันที (DB lookup) ไม่ต้อง re-login; Supabase Auth (login/reset password/verify email) ยังใช้ flow เดิม
+  - [ ] CLAUDE.md: อัปเดต project structure + data/security model สะท้อน RBAC layer + service_role admin path
+  - [ ] ยืนยัน `supabase/schema.sql` snapshot ตรงกับ migration ล่าสุด (regenerate ถ้ายังไม่ทำ)
+  - [ ] (ถ้าตัดสินใจ) migration cleanup ลบ `app_metadata.role` ที่ไม่ใช้แล้ว — **หรือ** คงไว้ + เขียน note ว่าเลิกใช้แต่เก็บเผื่อ rollback (เลือกอย่างใดอย่างหนึ่ง ระบุในไฟล์)
+- **Notes:** เอกสารต้องชัดพอให้ Get เอา RBAC ไปใช้ซ้ำ project Fastwork อื่นได้โดยไม่ต้องรื้อ — นั่นคือเป้าหมายหลักของ Phase 5
+
+---
 
 ## To Do — Phase 2 (Post-MVP Features)
 
