@@ -17,3 +17,19 @@ export async function requireOwner() {
   if (!user) redirect("/login");
   if (roleFromMetadata(user.app_metadata) !== "owner") redirect("/order");
 }
+
+/**
+ * Owner check returning a boolean (T25, stopgap before Phase 5 RBAC). Unlike
+ * requireOwner() this does NOT redirect — it's called from inside server actions
+ * to close the action-level hole where a logged-in staff could call owner-only
+ * menu/category mutations directly. Returns false on no session too.
+ */
+export async function isOwner(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return false;
+  return roleFromMetadata(user.app_metadata) === "owner";
+}
