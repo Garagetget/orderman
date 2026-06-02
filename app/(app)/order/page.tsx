@@ -1,9 +1,13 @@
 import { OrderTaker } from "@/components/order-taker";
+import { requirePermission } from "@/lib/rbac/guards";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrderPage() {
+  await requirePermission(PERMISSIONS.ORDER_CREATE);
+
   const supabase = await createClient();
   const [menusRes, categoriesRes] = await Promise.all([
     supabase

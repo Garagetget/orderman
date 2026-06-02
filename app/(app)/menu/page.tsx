@@ -1,11 +1,12 @@
 import { MenuManager } from "@/components/menu-manager";
-import { requireOwner } from "@/lib/supabase/guards";
+import { requirePermission } from "@/lib/rbac/guards";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function MenuPage() {
-  await requireOwner();
+  await requirePermission(PERMISSIONS.MENU_MANAGE);
 
   const supabase = await createClient();
   // Unlike the order page, show ALL menus here (including disabled ones) so the

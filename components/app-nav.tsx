@@ -12,25 +12,28 @@ import {
 } from "lucide-react";
 
 import { signOut } from "@/app/auth/actions";
-import type { Role } from "@/lib/roles";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { cn } from "@/lib/utils";
 
+// Each link declares the permission required to see it. The /admin link (user
+// management, T29) is listed now so it appears automatically once that page
+// exists — only users with user.manage will ever see it.
 const LINKS = [
-  { href: "/order", label: "จดออเดอร์", icon: ClipboardList, ownerOnly: false },
-  { href: "/order-history", label: "ประวัติ", icon: History, ownerOnly: false },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, ownerOnly: true },
-  { href: "/menu", label: "จัดการเมนู", icon: UtensilsCrossed, ownerOnly: true },
+  { href: "/order", label: "จดออเดอร์", icon: ClipboardList, permission: PERMISSIONS.ORDER_CREATE },
+  { href: "/order-history", label: "ประวัติ", icon: History, permission: PERMISSIONS.ORDER_HISTORY_VIEW },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: PERMISSIONS.DASHBOARD_VIEW },
+  { href: "/menu", label: "จัดการเมนู", icon: UtensilsCrossed, permission: PERMISSIONS.MENU_MANAGE },
 ] as const;
 
 export function AppNav({
   userEmail,
-  role,
+  permissions,
 }: {
   userEmail: string;
-  role: Role;
+  permissions: string[];
 }) {
   const pathname = usePathname();
-  const links = LINKS.filter((link) => role === "owner" || !link.ownerOnly);
+  const links = LINKS.filter((link) => permissions.includes(link.permission));
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface shadow-sm">
