@@ -3,17 +3,28 @@
 import { BarChart3 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { MenuSalesTable } from "@/components/menu-sales-table";
 import { SalesCards } from "@/components/sales-cards";
 import { SalesChart } from "@/components/sales-chart";
 import {
   buildChartSeries,
   chartTitle,
+  getPeriodRange,
+  PERIODS,
   summarize,
+  summarizeByMenu,
   type Period,
+  type SalesItem,
   type SalesOrder,
 } from "@/lib/sales";
 
-export function DashboardView({ orders }: { orders: SalesOrder[] }) {
+export function DashboardView({
+  orders,
+  items,
+}: {
+  orders: SalesOrder[];
+  items: SalesItem[];
+}) {
   const [period, setPeriod] = useState<Period>("day");
   // Resolved once on first render. The Bangkok-fixed date math in lib/sales
   // makes the result identical whether that render is server or client, so
@@ -25,6 +36,11 @@ export function DashboardView({ orders }: { orders: SalesOrder[] }) {
     () => buildChartSeries(orders, period, nowMs),
     [orders, period, nowMs],
   );
+  const menuRows = useMemo(
+    () => summarizeByMenu(items, getPeriodRange(period, nowMs)),
+    [items, period, nowMs],
+  );
+  const periodLabel = PERIODS.find((p) => p.value === period)?.label ?? "";
 
   if (orders.length === 0) {
     return (
@@ -41,6 +57,7 @@ export function DashboardView({ orders }: { orders: SalesOrder[] }) {
     <div className="space-y-6">
       <SalesCards totals={totals} active={period} onSelect={setPeriod} />
       <SalesChart data={series} title={chartTitle(period)} />
+      <MenuSalesTable rows={menuRows} title={`ยอดขายรายเมนู — ${periodLabel}`} />
     </div>
   );
 }

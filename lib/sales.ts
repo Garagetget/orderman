@@ -94,6 +94,52 @@ export function summarize(
   };
 }
 
+export type SalesItem = {
+  // The parent order's timestamp — order_items has no created_at of its own.
+  created_at: string;
+  menu_id: string;
+  // Current menu name, not the order-time snapshot, so a later rename is
+  // reflected (order_items stores no name — only menu_id + price).
+  name: string;
+  quantity: number;
+  // Snapshotted unit price (surcharge already included for พิเศษ lines).
+  price: number;
+};
+
+export type MenuSalesRow = {
+  menu_id: string;
+  name: string;
+  quantity: number;
+  revenue: number;
+};
+
+/** Per-menu quantity + revenue within the range, ranked by revenue (desc). */
+export function summarizeByMenu(
+  items: SalesItem[],
+  range: Range,
+): MenuSalesRow[] {
+  const byMenu = new Map<string, MenuSalesRow>();
+  for (const item of items) {
+    const t = Date.parse(item.created_at);
+    if (t < range.startMs || t > range.endMs) continue;
+
+    const revenue = item.price * item.quantity;
+    const existing = byMenu.get(item.menu_id);
+    if (existing) {
+      existing.quantity += item.quantity;
+      existing.revenue += revenue;
+    } else {
+      byMenu.set(item.menu_id, {
+        menu_id: item.menu_id,
+        name: item.name,
+        quantity: item.quantity,
+        revenue,
+      });
+    }
+  }
+  return [...byMenu.values()].sort((a, b) => b.revenue - a.revenue);
+}
+
 type Bucket = { label: string; startMs: number; endMs: number };
 
 function makeBuckets(period: Period, nowMs: number): Bucket[] {
