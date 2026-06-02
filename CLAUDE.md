@@ -66,8 +66,11 @@ get committed.
 Before any `db push`, Claude must:
 1. `git branch --show-current` and read `supabase/.temp/project-ref`
 2. If the linked ref doesn't match the branch's target, switch with `npm run db:link:dev`
-   or `npm run db:link:prod` (the owner enters the DB password at the prompt — Claude never
-   handles it). Then `npm run db:push`.
+   or `npm run db:link:prod`. Then run `npm run db:push` yourself — **always try it first.**
+   The Supabase CLI usually has the DB password cached, so the push just runs (it only asks
+   `Y/n` to confirm the migration list, which defaults to Y). If — and only if — it actually
+   prompts for a **DB password**, stop and tell Get to run `npm run db:push` in his own
+   terminal; Claude never enters the password.
 3. **Never push to the prod ref unless the current branch is `main`.**
 
 Running the app does NOT use `link` — it reads `.env.local` (dev) / Vercel env (prod). Link
