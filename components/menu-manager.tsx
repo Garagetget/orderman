@@ -1,18 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import {
-  Check,
-  Eye,
-  EyeOff,
-  FolderPlus,
-  Pencil,
-  Plus,
-  Tag,
-  Trash2,
-  UtensilsCrossed,
-  X,
-} from "lucide-react";
+import { useState, useTransition, type ReactNode } from "react";
+import { Pencil, Plus, Tag, Trash2, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -24,9 +13,23 @@ import {
   updateMenu,
   type MenuInput,
 } from "@/app/(app)/menu/actions";
-import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Tabs,
   TabsContent,
@@ -87,26 +90,82 @@ function parseDraft(draft: Draft): MenuInput | { error: string } {
 const badgeClass =
   "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium leading-none";
 
-function MenuForm({
+const inputClass =
+  "h-11 border-border focus-visible:ring-2 focus-visible:ring-primary/30";
+
+const primaryBtn =
+  "flex items-center justify-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-primary-hover disabled:opacity-50";
+
+const secondaryBtn =
+  "flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium transition-all duration-150 hover:bg-muted disabled:opacity-50";
+
+// Shared add/edit dialog: header + footer stay pinned, body scrolls, and the
+// whole thing is capped at the viewport height so it works on phone → desktop.
+function FormDialog({
+  open,
+  title,
+  pending,
+  submitLabel,
+  canSubmit = true,
+  onOpenChange,
+  onSubmit,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  pending: boolean;
+  submitLabel: string;
+  canSubmit?: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 p-0 sm:max-w-md">
+        <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
+          <DialogTitle className="text-lg">{title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+          {children}
+        </div>
+
+        <DialogFooter className="mx-0 mb-0 shrink-0 px-5 py-4">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => onOpenChange(false)}
+            className={secondaryBtn}
+          >
+            ยกเลิก
+          </button>
+          <button
+            type="button"
+            disabled={pending || !canSubmit}
+            onClick={onSubmit}
+            className={cn(primaryBtn, "px-6")}
+          >
+            {pending ? "กำลังบันทึก..." : submitLabel}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MenuFields({
   draft,
   categories,
   onChange,
-  onSubmit,
-  onCancel,
-  pending,
-  submitLabel,
 }: {
   draft: Draft;
   categories: Category[];
   onChange: (next: Draft) => void;
-  onSubmit: () => void;
-  onCancel: () => void;
-  pending: boolean;
-  submitLabel: string;
 }) {
   return (
-    <div className="max-w-2xl space-y-4 rounded-xl bg-card p-4 shadow-sm ring-1 ring-foreground/10">
-      <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+    <>
+      <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
         <div className="space-y-1.5">
           <Label htmlFor="menu-name">ชื่อเมนู</Label>
           <Input
@@ -114,6 +173,8 @@ function MenuForm({
             value={draft.name}
             onChange={(e) => onChange({ ...draft, name: e.target.value })}
             placeholder="เช่น ข้าวผัด"
+            className={inputClass}
+            autoFocus
           />
         </div>
         <div className="space-y-1.5">
@@ -124,40 +185,49 @@ function MenuForm({
             value={draft.price}
             onChange={(e) => onChange({ ...draft, price: e.target.value })}
             placeholder="0"
-            className="tabular-nums"
+            className={cn(inputClass, "tabular-nums")}
           />
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label>หมวดหมู่</Label>
+        <Label htmlFor="menu-category">หมวดหมู่</Label>
         {categories.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-secondary">
             ยังไม่มีหมวดหมู่ — ไปเพิ่มที่แท็บ &quot;หมวดหมู่&quot; ก่อน
           </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <Button
-                key={cat.name}
-                type="button"
-                size="sm"
-                variant={draft.category === cat.name ? "default" : "outline"}
-                onClick={() => onChange({ ...draft, category: cat.name })}
-              >
-                {cat.name}
-              </Button>
-            ))}
-          </div>
+          <Select
+            value={draft.category || undefined}
+            onValueChange={(value) =>
+              onChange({ ...draft, category: value ?? "" })
+            }
+          >
+            <SelectTrigger
+              id="menu-category"
+              className="h-11 w-full border-border focus-visible:ring-2 focus-visible:ring-primary/30"
+            >
+              <SelectValue placeholder="เลือกหมวดหมู่" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((cat) => (
+                <SelectItem key={cat.name} value={cat.name} className="py-2.5">
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
       </div>
 
-      <div className="rounded-lg bg-muted/40 p-3">
+      <div className="rounded-lg border border-border bg-muted/40 p-4">
         <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
           <input
             type="checkbox"
             checked={draft.hasSpecial}
-            onChange={(e) => onChange({ ...draft, hasSpecial: e.target.checked })}
+            onChange={(e) =>
+              onChange({ ...draft, hasSpecial: e.target.checked })
+            }
             className="size-4 accent-primary"
           />
           มีตัวเลือก &quot;พิเศษ&quot; (คิดราคาส่วนเพิ่ม)
@@ -169,27 +239,63 @@ function MenuForm({
               id="menu-surcharge"
               inputMode="decimal"
               value={draft.surcharge}
-              onChange={(e) => onChange({ ...draft, surcharge: e.target.value })}
+              onChange={(e) =>
+                onChange({ ...draft, surcharge: e.target.value })
+              }
               placeholder="เช่น 10"
-              className="tabular-nums sm:max-w-[200px]"
+              className={cn(inputClass, "tabular-nums sm:max-w-[200px]")}
             />
           </div>
         )}
       </div>
+    </>
+  );
+}
 
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={pending}
-          onClick={onCancel}
-        >
-          ยกเลิก
-        </Button>
-        <Button type="button" disabled={pending} onClick={onSubmit}>
-          {pending ? "กำลังบันทึก..." : submitLabel}
-        </Button>
-      </div>
+// Header row shared by both tabs: a count on the left, one primary CTA on the right.
+function TabHeader({
+  count,
+  unit,
+  addLabel,
+  onAdd,
+}: {
+  count: number;
+  unit: string;
+  addLabel: string;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-sm text-secondary tabular-nums">
+        ทั้งหมด {count} {unit}
+      </p>
+      <button type="button" onClick={onAdd} className={primaryBtn}>
+        <Plus className="size-4" />
+        {addLabel}
+      </button>
+    </div>
+  );
+}
+
+function EmptyState({
+  icon,
+  message,
+  addLabel,
+  onAdd,
+}: {
+  icon: ReactNode;
+  message: string;
+  addLabel: string;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border py-12">
+      {icon}
+      <p className="text-sm text-secondary">{message}</p>
+      <button type="button" onClick={onAdd} className={primaryBtn}>
+        <Plus className="size-4" />
+        {addLabel}
+      </button>
     </div>
   );
 }
@@ -201,37 +307,41 @@ function CategoryManager({
   categories: Category[];
   counts: Record<string, number>;
 }) {
-  const [adding, setAdding] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
+  const [nameDraft, setNameDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function submitAdd() {
-    const name = adding.trim();
-    if (!name) return;
-    startTransition(async () => {
-      const res = await createCategory(name);
-      if (res.ok) {
-        toast.success("เพิ่มหมวดหมู่เรียบร้อย");
-        setAdding("");
-      } else {
-        toast.error(res.error);
-      }
-    });
+  function openAdd() {
+    setEditingName(null);
+    setNameDraft("");
+    setDialogOpen(true);
   }
 
-  function submitRename(oldName: string) {
-    const next = editValue.trim();
-    if (!next || next === oldName) {
-      setEditingName(null);
+  function openEdit(name: string) {
+    setEditingName(name);
+    setNameDraft(name);
+    setDialogOpen(true);
+  }
+
+  function handleSubmit() {
+    const name = nameDraft.trim();
+    if (!name) {
+      toast.error("กรุณากรอกชื่อหมวดหมู่");
+      return;
+    }
+    if (editingName && name === editingName) {
+      setDialogOpen(false);
       return;
     }
     startTransition(async () => {
-      const res = await renameCategory(oldName, next);
+      const res = editingName
+        ? await renameCategory(editingName, name)
+        : await createCategory(name);
       if (res.ok) {
-        toast.success("แก้ไขหมวดหมู่เรียบร้อย");
-        setEditingName(null);
+        toast.success(editingName ? "แก้ไขหมวดหมู่เรียบร้อย" : "เพิ่มหมวดหมู่เรียบร้อย");
+        setDialogOpen(false);
       } else {
         toast.error(res.error);
       }
@@ -251,149 +361,122 @@ function CategoryManager({
   }
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <p className="text-sm text-muted-foreground">
+    <div className="space-y-6">
+      <TabHeader
+        count={categories.length}
+        unit="หมวด"
+        addLabel="เพิ่มหมวดหมู่"
+        onAdd={openAdd}
+      />
+
+      <p className="text-sm text-secondary">
         หมวดหมู่ใช้จัดกลุ่มเมนู — แก้ชื่อแล้วเมนูในหมวดนั้นจะเปลี่ยนตาม
         ลบได้เฉพาะหมวดที่ไม่มีเมนูอยู่
       </p>
 
-      <div className="space-y-2">
-        {categories.map((cat) => {
-          const count = counts[cat.name] ?? 0;
-          if (editingName === cat.name) {
+      {categories.length === 0 ? (
+        <EmptyState
+          icon={
+            <Tag className="size-12 text-secondary opacity-50" aria-hidden="true" />
+          }
+          message="ยังไม่มีหมวดหมู่ — เพิ่มหมวดหมู่แรกเพื่อเริ่ม"
+          addLabel="เพิ่มหมวดหมู่"
+          onAdd={openAdd}
+        />
+      ) : (
+        <div className="grid gap-2 lg:grid-cols-2">
+          {categories.map((cat) => {
+            const count = counts[cat.name] ?? 0;
             return (
               <div
                 key={cat.name}
-                className="flex items-center gap-2 rounded-xl bg-card p-2 ring-1 ring-primary/40"
+                className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-muted/50"
               >
-                <Input
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="h-9"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") submitRename(cat.name);
-                    if (e.key === "Escape") setEditingName(null);
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  className="size-9 shrink-0"
-                  disabled={pending}
-                  onClick={() => submitRename(cat.name)}
-                  aria-label="บันทึก"
-                >
-                  <Check className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="size-9 shrink-0"
-                  disabled={pending}
-                  onClick={() => setEditingName(null)}
-                  aria-label="ยกเลิก"
-                >
-                  <X className="size-4" />
-                </Button>
+                <Tag className="size-4 shrink-0 text-secondary" />
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {cat.name}
+                </span>
+                <span className="shrink-0 text-xs text-secondary tabular-nums">
+                  {count} เมนู
+                </span>
+
+                {confirmDelete === cat.name ? (
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <span className="hidden text-xs text-secondary sm:inline">
+                      ลบ?
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-danger bg-transparent px-3 py-1.5 text-sm font-medium text-danger transition-all duration-150 hover:bg-danger/10 disabled:opacity-50"
+                      disabled={pending}
+                      onClick={() => submitDelete(cat.name)}
+                    >
+                      ลบ
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg px-3 py-1.5 text-sm font-medium text-secondary transition-all duration-150 hover:bg-muted disabled:opacity-50"
+                      disabled={pending}
+                      onClick={() => setConfirmDelete(null)}
+                    >
+                      ไม่
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-all duration-150 hover:bg-muted disabled:opacity-50"
+                      disabled={pending}
+                      onClick={() => openEdit(cat.name)}
+                    >
+                      <Pencil className="size-4" />
+                      <span className="hidden sm:inline">แก้ไข</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex size-9 items-center justify-center rounded-lg text-secondary transition-all duration-150 hover:bg-danger/10 hover:text-danger disabled:pointer-events-none disabled:opacity-40"
+                      disabled={pending || count > 0}
+                      onClick={() => setConfirmDelete(cat.name)}
+                      aria-label={
+                        count > 0 ? "ลบไม่ได้ — ยังมีเมนูในหมวดนี้" : "ลบหมวดหมู่"
+                      }
+                      title={count > 0 ? "ยังมีเมนูในหมวดนี้ ลบไม่ได้" : undefined}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
-          }
+          })}
+        </div>
+      )}
 
-          return (
-            <div
-              key={cat.name}
-              className="flex items-center gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10"
-            >
-              <Tag className="size-4 shrink-0 text-muted-foreground" />
-              <span className="flex-1 font-medium">{cat.name}</span>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {count} เมนู
-              </span>
-
-              {confirmDelete === cat.name ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="hidden text-xs text-muted-foreground sm:inline">
-                    ลบ?
-                  </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={pending}
-                    onClick={() => submitDelete(cat.name)}
-                  >
-                    ลบ
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={pending}
-                    onClick={() => setConfirmDelete(null)}
-                  >
-                    ไม่
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="size-8 text-muted-foreground"
-                    disabled={pending}
-                    onClick={() => {
-                      setEditingName(cat.name);
-                      setEditValue(cat.name);
-                    }}
-                    aria-label="แก้ไขหมวดหมู่"
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="size-8 text-muted-foreground hover:text-destructive disabled:opacity-40"
-                    disabled={pending || count > 0}
-                    onClick={() => setConfirmDelete(cat.name)}
-                    aria-label={
-                      count > 0 ? "ลบไม่ได้ — ยังมีเมนูในหมวดนี้" : "ลบหมวดหมู่"
-                    }
-                    title={count > 0 ? "ยังมีเมนูในหมวดนี้ ลบไม่ได้" : undefined}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-2 rounded-xl border border-dashed p-2">
-        <Input
-          value={adding}
-          onChange={(e) => setAdding(e.target.value)}
-          placeholder="ชื่อหมวดหมู่ใหม่"
-          className="h-9 border-0 shadow-none focus-visible:ring-0"
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submitAdd();
-          }}
-        />
-        <Button
-          type="button"
-          variant="secondary"
-          className="shrink-0"
-          disabled={pending || adding.trim().length === 0}
-          onClick={submitAdd}
-        >
-          <FolderPlus className="size-4" />
-          เพิ่มหมวด
-        </Button>
-      </div>
+      <FormDialog
+        open={dialogOpen}
+        title={editingName ? "แก้ไขหมวดหมู่" : "เพิ่มหมวดหมู่ใหม่"}
+        pending={pending}
+        submitLabel={editingName ? "บันทึก" : "เพิ่มหมวด"}
+        canSubmit={nameDraft.trim().length > 0}
+        onOpenChange={setDialogOpen}
+        onSubmit={handleSubmit}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="category-name">ชื่อหมวดหมู่</Label>
+          <Input
+            id="category-name"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            placeholder="เช่น ของหวาน"
+            className={inputClass}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSubmit();
+            }}
+          />
+        </div>
+      </FormDialog>
     </div>
   );
 }
@@ -412,7 +495,7 @@ function MenuRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10 transition hover:ring-foreground/20",
+        "flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-colors",
         !menu.is_available && "bg-muted/30",
       )}
     >
@@ -421,7 +504,7 @@ function MenuRow({
           <span
             className={cn(
               "truncate font-medium",
-              !menu.is_available && "text-muted-foreground",
+              !menu.is_available && "text-secondary",
             )}
           >
             {menu.name}
@@ -431,57 +514,44 @@ function MenuRow({
               พิเศษ +{formatBaht(menu.special_surcharge)}
             </span>
           )}
-          {!menu.is_available && (
-            <span className={cn(badgeClass, "bg-muted text-muted-foreground")}>
-              ปิดอยู่
-            </span>
-          )}
         </div>
-      </div>
-
-      <span
-        className={cn(
-          "shrink-0 font-semibold tabular-nums",
-          !menu.is_available && "text-muted-foreground",
-        )}
-      >
-        {formatBaht(menu.price)}
-      </span>
-
-      <div className="flex shrink-0 items-center gap-0.5">
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="size-8 text-muted-foreground"
-          disabled={pending}
-          onClick={onEdit}
-          aria-label="แก้ไขเมนู"
-        >
-          <Pencil className="size-4" />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
+        <span
           className={cn(
-            "size-8",
-            menu.is_available
-              ? "text-muted-foreground"
-              : "text-primary hover:text-primary",
+            "mt-0.5 block text-sm font-semibold tabular-nums",
+            menu.is_available ? "text-text-primary" : "text-secondary",
           )}
-          disabled={pending}
-          onClick={onToggle}
-          aria-label={menu.is_available ? "ปิดเมนู (ซ่อนจากหน้าจดออเดอร์)" : "เปิดเมนู"}
-          title={menu.is_available ? "ปิดเมนู" : "เปิดเมนู"}
         >
-          {menu.is_available ? (
-            <Eye className="size-4" />
-          ) : (
-            <EyeOff className="size-4" />
-          )}
-        </Button>
+          {formatBaht(menu.price)}
+        </span>
       </div>
+
+      {/* Availability — a switch reads far clearer than the old eye icon. */}
+      <label className="flex shrink-0 cursor-pointer items-center gap-2">
+        <Switch
+          checked={menu.is_available}
+          onCheckedChange={onToggle}
+          disabled={pending}
+          aria-label={menu.is_available ? "ปิดเมนู" : "เปิดเมนู"}
+        />
+        <span
+          className={cn(
+            "w-6 text-xs font-medium",
+            menu.is_available ? "text-accent" : "text-secondary",
+          )}
+        >
+          {menu.is_available ? "เปิด" : "ปิด"}
+        </span>
+      </label>
+
+      <button
+        type="button"
+        className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-all duration-150 hover:bg-muted disabled:opacity-50"
+        disabled={pending}
+        onClick={onEdit}
+      >
+        <Pencil className="size-4" />
+        <span className="hidden sm:inline">แก้ไข</span>
+      </button>
     </div>
   );
 }
@@ -493,7 +563,7 @@ export function MenuManager({
   menus: Menu[];
   categories: Category[];
 }) {
-  const [adding, setAdding] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [pending, startTransition] = useTransition();
@@ -501,48 +571,28 @@ export function MenuManager({
   function openAdd() {
     setEditingId(null);
     setDraft({ ...EMPTY_DRAFT, category: categories[0]?.name ?? "" });
-    setAdding(true);
+    setDialogOpen(true);
   }
 
   function openEdit(menu: Menu) {
-    setAdding(false);
-    setDraft(toDraft(menu));
     setEditingId(menu.id);
+    setDraft(toDraft(menu));
+    setDialogOpen(true);
   }
 
-  function close() {
-    setAdding(false);
-    setEditingId(null);
-  }
-
-  function submitAdd() {
+  function handleSubmit() {
     const parsed = parseDraft(draft);
     if ("error" in parsed) {
       toast.error(parsed.error);
       return;
     }
     startTransition(async () => {
-      const res = await createMenu(parsed);
+      const res = editingId
+        ? await updateMenu(editingId, parsed)
+        : await createMenu(parsed);
       if (res.ok) {
-        toast.success("เพิ่มเมนูเรียบร้อย");
-        close();
-      } else {
-        toast.error(res.error);
-      }
-    });
-  }
-
-  function submitEdit(id: string) {
-    const parsed = parseDraft(draft);
-    if ("error" in parsed) {
-      toast.error(parsed.error);
-      return;
-    }
-    startTransition(async () => {
-      const res = await updateMenu(id, parsed);
-      if (res.ok) {
-        toast.success("บันทึกเมนูเรียบร้อย");
-        close();
+        toast.success(editingId ? "บันทึกเมนูเรียบร้อย" : "เพิ่มเมนูเรียบร้อย");
+        setDialogOpen(false);
       } else {
         toast.error(res.error);
       }
@@ -573,68 +623,66 @@ export function MenuManager({
 
   return (
     <Tabs defaultValue="menus">
-      <TabsList variant="line" className="gap-4 border-b">
-        <TabsTrigger value="menus">เมนู</TabsTrigger>
-        <TabsTrigger value="categories">หมวดหมู่</TabsTrigger>
+      <TabsList
+        variant="line"
+        className="w-full justify-start gap-6 border-b border-border"
+      >
+        <TabsTrigger
+          value="menus"
+          className="rounded-none border-0 px-1 pb-2.5 text-secondary after:hidden hover:text-primary/80 data-active:border-b-2 data-active:border-primary data-active:text-primary"
+        >
+          เมนู
+        </TabsTrigger>
+        <TabsTrigger
+          value="categories"
+          className="rounded-none border-0 px-1 pb-2.5 text-secondary after:hidden hover:text-primary/80 data-active:border-b-2 data-active:border-primary data-active:text-primary"
+        >
+          หมวดหมู่
+        </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="menus" className="space-y-6 pt-3">
-        {adding ? (
-          <MenuForm
-            draft={draft}
-            categories={categories}
-            onChange={setDraft}
-            onSubmit={submitAdd}
-            onCancel={close}
-            pending={pending}
-            submitLabel="เพิ่มเมนู"
+      <TabsContent value="menus" className="space-y-6 pt-4">
+        <TabHeader
+          count={menus.length}
+          unit="เมนู"
+          addLabel="เพิ่มเมนูใหม่"
+          onAdd={openAdd}
+        />
+
+        {menus.length === 0 ? (
+          <EmptyState
+            icon={
+              <UtensilsCrossed
+                className="size-12 text-secondary opacity-50"
+                aria-hidden="true"
+              />
+            }
+            message="ยังไม่มีเมนู — เพิ่มเมนูแรกเพื่อเริ่ม"
+            addLabel="เพิ่มเมนูใหม่"
+            onAdd={openAdd}
           />
         ) : (
-          <Button type="button" onClick={openAdd}>
-            <Plus className="size-4" />
-            เพิ่มเมนูใหม่
-          </Button>
-        )}
+          groupOrder.map((category) => {
+            const items = menus.filter((m) => m.category === category);
+            if (items.length === 0) return null;
 
-        {menus.length === 0 && !adding && (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-12 text-muted-foreground">
-            <UtensilsCrossed className="size-8 opacity-40" />
-            <p className="text-sm">ยังไม่มีเมนู — กด &quot;เพิ่มเมนูใหม่&quot; เพื่อเริ่ม</p>
-          </div>
-        )}
+            return (
+              <section key={category} className="space-y-2.5">
+                <div className="flex items-center gap-2 border-b border-border pb-2">
+                  <span
+                    className="size-1.5 shrink-0 rounded-full bg-primary"
+                    aria-hidden="true"
+                  />
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-secondary">
+                    {category}
+                  </h2>
+                  <span className="text-xs text-secondary tabular-nums">
+                    {items.length} รายการ
+                  </span>
+                </div>
 
-        {groupOrder.map((category) => {
-          const items = menus.filter((m) => m.category === category);
-          if (items.length === 0) return null;
-
-          return (
-            <section key={category} className="space-y-2.5">
-              <div className="flex items-baseline gap-2">
-                <span
-                  className="h-4 w-1 rounded-full bg-primary"
-                  aria-hidden="true"
-                />
-                <h2 className="text-sm font-semibold">{category}</h2>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {items.length} รายการ
-                </span>
-              </div>
-
-              <div className="grid gap-2 lg:grid-cols-2">
-                {items.map((menu) =>
-                  editingId === menu.id ? (
-                    <div key={menu.id} className="lg:col-span-2">
-                      <MenuForm
-                        draft={draft}
-                        categories={categories}
-                        onChange={setDraft}
-                        onSubmit={() => submitEdit(menu.id)}
-                        onCancel={close}
-                        pending={pending}
-                        submitLabel="บันทึก"
-                      />
-                    </div>
-                  ) : (
+                <div className="grid gap-2 lg:grid-cols-2">
+                  {items.map((menu) => (
                     <MenuRow
                       key={menu.id}
                       menu={menu}
@@ -642,17 +690,28 @@ export function MenuManager({
                       onEdit={() => openEdit(menu)}
                       onToggle={() => toggleAvailability(menu)}
                     />
-                  ),
-                )}
-              </div>
-            </section>
-          );
-        })}
+                  ))}
+                </div>
+              </section>
+            );
+          })
+        )}
       </TabsContent>
 
-      <TabsContent value="categories" className="pt-3">
+      <TabsContent value="categories" className="pt-4">
         <CategoryManager categories={categories} counts={counts} />
       </TabsContent>
+
+      <FormDialog
+        open={dialogOpen}
+        title={editingId ? "แก้ไขเมนู" : "เพิ่มเมนูใหม่"}
+        pending={pending}
+        submitLabel={editingId ? "บันทึก" : "เพิ่มเมนู"}
+        onOpenChange={setDialogOpen}
+        onSubmit={handleSubmit}
+      >
+        <MenuFields draft={draft} categories={categories} onChange={setDraft} />
+      </FormDialog>
     </Tabs>
   );
 }

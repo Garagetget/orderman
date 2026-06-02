@@ -22,16 +22,16 @@ export default async function MenuPage() {
   const categories = categoriesRes.data ?? [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">จัดการเมนู</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-semibold">จัดการเมนู</h1>
+        <p className="mt-1 text-sm text-secondary">
           เพิ่ม แก้ไข หรือปิด/เปิดเมนู — เมนูที่ปิดจะไม่แสดงในหน้าจดออเดอร์
         </p>
       </div>
 
       {error ? (
-        <p className="text-sm text-destructive">
+        <p className="text-sm text-danger">
           โหลดเมนูไม่สำเร็จ: {error.message}
         </p>
       ) : (
