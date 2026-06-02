@@ -19,7 +19,7 @@ _(none)_
 
 - [x] **T13** จัดการเมนู (Menu Management UI) · P1 · L
 - [x] **T18** จัดการหมวดหมู่แบบ dynamic (เพิ่ม/ลบ/แก้ชื่อ) · P1 · M _(extends T13)_
-- [ ] **T14** ยอดขายรายเมนูบน Dashboard · P2 · M
+- [x] **T14** ยอดขายรายเมนูบน Dashboard · P2 · M
 - [ ] **T15** พิมพ์ใบเสร็จ · P2 · S _(depends on T11)_
 - [ ] **T16** สิทธิ์ผู้ใช้ (Owner vs. Staff) · P2 · L
 - [ ] **T17** จดออเดอร์แบบ manual (รายการนอกเมนู) · P2 · M
@@ -47,12 +47,12 @@ _(none)_
 - **Notes / ⚠️ ต้อง apply migration:** เปลี่ยน `menus.category` จาก CHECK เป็น FK ไปตาราง `categories(name PK, sort_order)`. migration ใหม่: `supabase/migrations/20260601130000_dynamic_categories.sql` (idempotent, seed 3 หมวดเดิม + backfill). **ต้องรัน `npm run db:push` (dev) ก่อนแอปทำงาน** — owner กรอก DB password เอง. types: `MenuCategory` เปลี่ยนเป็น `string` + เพิ่ม type `Category`. หมวดใหม่ต่อท้าย (sort_order = max+1); ยังไม่มี UI จัดลำดับ (reorder) — เป็น nice-to-have.
 
 ### T14 — ยอดขายรายเมนูบน Dashboard
-- **Priority:** P2 · **Size:** M · **Status:** Todo · **Depends on:** — (ทำหลัง T13 ได้ test data ดีกว่า)
+- **Priority:** P2 · **Size:** M · **Status:** Done (2026-06-02) · **Depends on:** — (ทำหลัง T13 ได้ test data ดีกว่า)
 - **Acceptance:**
-  - [ ] dashboard แสดงตาราง/chart ยอดขายแยกตามชื่อเมนู
-  - [ ] ตัวเลขนับเฉพาะออเดอร์ status = `completed` (invariant เดิม)
-  - [ ] filter ช่วงเวลาเดียวกับ sales cards ปัจจุบัน (วันนี้/สัปดาห์/เดือน)
-  - [ ] คิดเวลาใน UTC+7 เหมือน `lib/sales.ts` เดิม
+  - [x] dashboard แสดงตาราง/chart ยอดขายแยกตามชื่อเมนู
+  - [x] ตัวเลขนับเฉพาะออเดอร์ status = `completed` (invariant เดิม)
+  - [x] filter ช่วงเวลาเดียวกับ sales cards ปัจจุบัน (วันนี้/สัปดาห์/เดือน)
+  - [x] คิดเวลาใน UTC+7 เหมือน `lib/sales.ts` เดิม
 - **Notes:** ขยาย aggregation ใน `lib/sales.ts` ไม่ใช่ query ใหม่ใน component. group by `menu_id` แล้วโชว์ชื่อปัจจุบันจาก `menus` (order_items snapshot ไม่มี `name` — กันเคสเมนูถูกเปลี่ยนชื่อภายหลัง).
 
 ### T15 — พิมพ์ใบเสร็จ (Browser Print)
