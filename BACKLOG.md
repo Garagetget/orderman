@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-01 (backlog cleanup — รวม section ซ้ำ, ย้าย T11/T12 ไป Done, refresh T13)
+> Last updated: 2026-06-02 (Phase 3 Design Refresh T19–T24 เสร็จ + /menu redesign)
 
 ---
 
@@ -84,6 +84,97 @@ _(none)_
   - [ ] หน้า `/order` มีปุ่ม "เพิ่มรายการเอง" กรอกชื่อ + ราคา + จำนวน
   - [ ] รายการ manual เข้าออเดอร์ + นับใน total/dashboard ถูกต้อง
   - [ ] ราคา manual ถูก validate server-side (กันค่าติดลบ/ผิดรูปแบบ)
+
+---
+
+## Phase 3 (Design Refresh) — ✅ Done (2026-06-02)
+
+> Apply [DESIGN.md](DESIGN.md) กับทุกหน้าที่มีอยู่. แตะเฉพาะ presentation — ห้ามแก้ business logic
+> (RLS / RPC / `lib/sales.ts` / server actions คงเดิม). ทุก item ต้อง `npm run lint && npm run build` ผ่าน clean.
+
+- [x] **T19** Design foundation — globals.css palette + Sarabun + theme · **P0** · S–M
+- [x] **T20** Refresh หน้าจดออเดอร์ (order page) · P1 · M · _depends on T19_
+- [x] **T21** Refresh หน้าประวัติออเดอร์ (order-history) · P1 · M · _depends on T19_
+- [x] **T22** Refresh หน้า Dashboard + Recharts styling · P1 · M · _depends on T19_
+- [x] **T23** Refresh หน้าจัดการเมนู + หมวดหมู่ · P1 · M · _depends on T19_
+- [x] **T24** Refresh App nav bar · P1 · M · _depends on T19_
+
+✅ Phase 3 เสร็จ (2026-06-02) — ทุกหน้า apply DESIGN.md, `npm run lint && npm run build` ผ่าน clean
+
+### T19 — Design foundation (globals.css palette + Sarabun + theme)
+- **Priority:** P0 · **Size:** S–M · **Status:** Done (2026-06-01) · **Depends on:** —
+- **Why P0:** ทุก item ที่เหลือ (T20–T24) อ้าง CSS variables/utility ที่ตั้งใน item นี้ — ถ้ายังไม่มี token จะแก้หน้าอื่นไม่ได้
+- **Acceptance:**
+  - [x] `--primary` เป็น **warm orange** (`hsl(25 95% 53%)` หรือ oklch เทียบเท่า) — `npm run build` แล้ว primary button **เป็นสีส้ม ไม่ใช่ฟ้า/ม่วง**
+  - [x] CSS variables ครบทุกตัวตาม DESIGN.md "Color palette": primary + primary-hover, accent (teal `hsl(160 60% 45%)`), danger, warning, background (warm off-white), surface, border + border-hover, text-primary, text-secondary, text-on-primary
+  - [x] ฟอนต์เป็น **Sarabun** (โหลดผ่าน `next/font` ใน [app/layout.tsx](app/layout.tsx)); weights 300/400/500/600 ใช้งานได้ — body=400, heading=600, caption=300
+  - [x] Tailwind theme (`@theme inline`) map token ใหม่ครบ เพื่อให้ใช้ `bg-primary` / `text-secondary` / `bg-accent` / `text-danger` / `bg-surface` ใน util ได้
+  - [x] chart tokens (`--chart-1..5`) เปลี่ยนจากโทนฟ้าเป็นโทนส้ม/warm (เตรียมให้ T22)
+  - [x] radius defaults: card `rounded-xl` (12px), button `rounded-lg` (8px) ใช้งานได้ตาม DESIGN.md
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** ใช้ HSL ตรงตาม DESIGN.md (เลิก oklch palette เดิม). แก้แค่ `app/globals.css` + `app/layout.tsx` (โหลด Sarabun ผ่าน `next/font`) — ไม่แตะ component ใด. **Decision (Get, 2026-06-01):** `text-secondary` (Tailwind v4 = `--color-secondary`) ชนกับ `bg-secondary` button variant — เลือกให้ `--secondary` = muted gray เพื่อให้ `text-secondary` ตรง DESIGN.md; ผลคือ base-nova `variant="secondary"` button จะเป็นเทาเข้มชั่วคราว จนกว่าจะเปลี่ยนเป็น `bg-surface border` ตอน refresh component ใน T20–T24.
+
+### T20 — Refresh หน้าจดออเดอร์ (order page)
+- **Priority:** P1 · **Size:** M · **Status:** Done (2026-06-02) · **Depends on:** T19
+- **Scope:** [components/menu-grid.tsx](components/menu-grid.tsx), [components/order-cart.tsx](components/order-cart.tsx), [components/order-taker.tsx](components/order-taker.tsx), [app/(app)/order/page.tsx](app/(app)/order/page.tsx)
+- **Acceptance:**
+  - [x] menu card เป็น `rounded-xl border border-border` (ไม่ใช่ rounded-md), selected state = `border-2 border-primary bg-primary/5`, hover มี transition
+  - [x] badge "พิเศษ" = `bg-primary/10 text-primary rounded-full`
+  - [x] ราคาทุกจุดเป็น `tabular-nums`
+  - [x] category section header เป็น `text-sm font-semibold text-secondary uppercase tracking-wide` + separator (ไม่ใช่ left-border bar เดิม)
+  - [x] ปุ่ม "บันทึกออเดอร์" เป็น primary orange (`bg-primary text-white`), touch target ≥ 44px (py-2.5+)
+  - [x] layout: iPad+ grid 2 คอลัมน์ (menu + cart), mobile stack; page ใช้ template `max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-6` + page header
+  - [x] empty state (เมนูว่าง / ตะกร้าว่าง) centered `py-12` + icon
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** แตะ presentation เท่านั้น — server action `createOrder` / RPC คงเดิม. selected-in-cart highlight เพิ่ม prop `selectedIds` (Set ของ cartLineId) จาก `order-taker` → `menu-grid` (data-wiring, ไม่แตะ logic). disabled state ไม่ทำ — หน้า order filter `is_available=true` ตั้งแต่ server แล้ว ไม่มีเคส disabled.
+
+### T21 — Refresh หน้าประวัติออเดอร์ (order-history)
+- **Priority:** P1 · **Size:** M · **Status:** Done (2026-06-02) · **Depends on:** T19
+- **Scope:** [components/order-history-view.tsx](components/order-history-view.tsx), [app/(app)/order-history/page.tsx](app/(app)/order-history/page.tsx)
+- **Acceptance:**
+  - [x] แต่ละออเดอร์เป็น list row `bg-surface border border-border rounded-xl p-4`, hover `bg-muted/50`
+  - [x] info แบ่งด้วย `flex justify-between` — เลขออเดอร์+เวลาซ้าย, ยอด+status ขวา; ยอดเป็น `tabular-nums`
+  - [x] status badge: สำเร็จ = `bg-accent/10 text-accent`, ยกเลิก = `bg-danger/10 text-danger`
+  - [x] expandable row มี arrow rotate animation
+  - [x] ปุ่ม "ยกเลิกออเดอร์" เป็น **danger outline** (`border border-danger text-danger`, hover `bg-danger/10`) ไม่ใช่ bg แดงทึบ
+  - [x] page ใช้ layout template + page header + empty state (`py-12` + icon) เมื่อไม่มีออเดอร์
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** logic ยกเลิก/แก้ไข (`cancelOrder` / `updateOrderItems` / RPC) คงเดิม — แตะแค่ style + 2-step confirm UI
+
+### T22 — Refresh หน้า Dashboard + Recharts styling
+- **Priority:** P1 · **Size:** M · **Status:** Done (2026-06-02) · **Depends on:** T19
+- **Scope:** [components/sales-cards.tsx](components/sales-cards.tsx), [components/sales-chart.tsx](components/sales-chart.tsx), [components/dashboard-view.tsx](components/dashboard-view.tsx), [app/(app)/dashboard/page.tsx](app/(app)/dashboard/page.tsx)
+- **Acceptance:**
+  - [x] stats card: label `text-xs font-light text-secondary uppercase tracking-wide`, value `text-2xl font-bold tabular-nums`, active = `border-primary bg-primary/5`
+  - [x] chart bar fill เป็น **primary warm orange** (ไม่ใช่ default Recharts blue #8884d8); grid `strokeDasharray="3 3"`; bar radius `[4,4,0,0]`; axis `text-xs text-secondary`; tooltip `bg-surface border shadow-md rounded-lg`
+  - [x] cards เป็น `rounded-xl shadow-sm` (ไม่มี shadow-lg)
+  - [x] page ใช้ layout template + page header + empty state เมื่อไม่มีข้อมูลขาย
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** **ห้ามแตะ `lib/sales.ts`** — UTC+7 bucketing + `status='completed'` invariant คงเดิม. แก้แค่ presentation ของ chart/cards
+
+### T23 — Refresh หน้าจัดการเมนู + หมวดหมู่
+- **Priority:** P1 · **Size:** M · **Status:** Done (2026-06-02) · **Depends on:** T19
+- **Scope:** [components/menu-manager.tsx](components/menu-manager.tsx), [app/(app)/menu/page.tsx](app/(app)/menu/page.tsx), [components/ui/dialog.tsx], [components/ui/switch.tsx], [components/ui/select.tsx]
+- **Acceptance:**
+  - [x] tab "เมนู / หมวดหมู่" ใช้ active state ตาม DESIGN.md (`text-primary border-b-2 border-primary`)
+  - [x] เมนู/หมวดหมู่ rows เป็น `rounded-xl border border-border`, form input `rounded-lg`
+  - [x] ปุ่มเพิ่ม/บันทึก = primary orange; ปุ่มลบ = danger outline; secondary actions = secondary style
+  - [x] ราคาแสดง `tabular-nums` (validation error ยังใช้ toast — ไม่ทำ inline text)
+  - [x] page ใช้ layout template + page header + empty state ทั้งสอง tab
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** server actions (`createMenu`/`updateMenu`/`setMenuAvailability` + category actions) + FK cascade/restrict คงเดิม — แตะแค่ presentation. **Redesign จาก feedback (Get, 2026-06-02):** เมนู+หมวดหมู่ใช้ UX เดียวกัน — ฟอร์มเพิ่ม/แก้เป็น **Dialog popup กลางจอ** (`FormDialog` ใช้ร่วม, responsive: `max-h-90dvh` + header/footer ตรึง + body scroll), เปิด/ปิดเมนูเป็น **Switch** (เลิกไอคอนตา), เลือกหมวดเป็น **Select dropdown** (scale ได้ถ้าหมวดเยอะ). เพิ่ม shadcn base-nova components ใหม่: `dialog` / `switch` / `select` (ดึงจาก `@base-ui/react` ที่มีอยู่แล้ว — ไม่ลง npm package ใหม่).
+
+### T24 — Refresh App nav bar
+- **Priority:** P1 · **Size:** M · **Status:** Done (2026-06-02) · **Depends on:** T19
+- **Scope:** [components/app-nav.tsx](components/app-nav.tsx), [app/(app)/layout.tsx](app/(app)/layout.tsx)
+- **Acceptance:**
+  - [x] nav `bg-surface border-b border-border shadow-sm`, `h-14`, `sticky top-0 z-50`
+  - [x] logo `text-xl font-bold text-primary`
+  - [x] nav item active = `text-primary border-b-2 border-primary`; inactive = `text-secondary`; hover `text-primary`
+  - [x] ด้านขวา: user email `text-xs text-secondary` + logout เป็น ghost button
+  - [x] responsive: mobile ไม่ล้น / อ่านได้
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** active state อิง `usePathname`. **เปลี่ยนจากแผนเดิม (feedback Get, 2026-06-02):** nav links **เลิกใช้ `buttonVariants()`** — ทรงปุ่ม (rounded/hover-bg/focus-ring) ดูเป็นกล่อง ไม่ตรง DESIGN.md จึงทำเป็น tab underline ตัวอักษรล้วน (h-14 + `border-b-2`). เอา `overflow-x-auto` ออกจาก `<nav>` ด้วย — มันบังคับ `overflow-y:auto` ทำให้เกิด scrollbar แนวตั้งโผล่. layout reconciliation: รวม `<main>` ให้เหลือตัวเดียวที่ `app/(app)/layout.tsx` (max-w-6xl) + แก้ dashboard ที่เคยซ้อน `<main>`.
 
 ---
 
