@@ -223,8 +223,20 @@ _(none)_
 - [x] **T22** Refresh หน้า Dashboard + Recharts styling · P1 · M · _depends on T19_
 - [x] **T23** Refresh หน้าจัดการเมนู + หมวดหมู่ · P1 · M · _depends on T19_
 - [x] **T24** Refresh App nav bar · P1 · M · _depends on T19_
+- [x] **T31** Refresh หน้า Login · P2 · S · _(ตกหล่นจาก Phase 3 — เพิ่มภายหลัง)_
 
 ✅ Phase 3 เสร็จ (2026-06-02) — ทุกหน้า apply DESIGN.md, `npm run lint && npm run build` ผ่าน clean
+
+### T31 — Refresh หน้า Login
+- **Priority:** P2 · **Size:** S · **Status:** Done (2026-06-03) · **Depends on:** T19
+- **ที่มา:** หน้า `/login` ไม่ถูกรวมใน Phase 3 (T20–T24 ทำแค่หน้าใน `(app)` group) เลยยังเป็น default shadcn Card/Input ดูโล่ง ไม่เข้าธีม
+- **Acceptance:**
+  - [x] เลิกใช้ default shadcn Card/Input/Button/Label — hand-style ตาม DESIGN.md เหมือนหน้าอื่น
+  - [x] เพิ่ม brand: ไอคอน (lucide `UtensilsCrossed`) ในวงกลม primary + ชื่อร้าน + subtitle
+  - [x] card `rounded-xl border border-border shadow-sm`; input `h-11 rounded-lg` + focus ring `primary/30` (touch target ≥ 44px)
+  - [x] ปุ่มเข้าสู่ระบบ primary orange `h-11 hover:bg-primary-hover`; error เป็น `bg-danger/10 text-danger rounded-lg`
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** แตะ presentation เท่านั้น — `login` server action + `useActionState` flow คงเดิม. ไฟล์เดียว: [app/login/page.tsx](app/login/page.tsx)
 
 ### T19 — Design foundation (globals.css palette + Sarabun + theme)
 - **Priority:** P0 · **Size:** S–M · **Status:** Done (2026-06-01) · **Depends on:** —
