@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-02 (T26 done — RBAC schema + helpers + RLS + backfill, apply ขึ้น dev แล้ว; schema.sql regen ค้างเพราะ Docker ปิด)
+> Last updated: 2026-06-02 (T27 done — server-only service-role admin client + lazy env getter; Get ต้องเพิ่มค่า SUPABASE_SERVICE_ROLE_KEY ใน .env.local/Vercel เอง)
 
 ---
 
@@ -72,16 +72,16 @@ _(none)_
 - **Notes:** helper เป็น SECURITY DEFINER เพื่ออ่าน user_roles ได้แม้ caller ไม่มีสิทธิ์ direct select (และใช้ใน RLS policy ของ menus/categories ใน T28 ได้). อย่าใส่ business logic อื่นในก้อน rbac.sql — ให้มันเป็น auth layer ล้วนๆ เพื่อ portability
 
 ### T27 — Service-role admin client + env wiring
-- **Priority:** P0 · **Size:** S–M · **Status:** Todo · **Depends on:** —
+- **Priority:** P0 · **Size:** S–M · **Status:** Done (2026-06-02) · **Depends on:** —
 - **Scope:** `lib/rbac/admin.ts`, `lib/supabase/env.ts`, `.env.local.example`, README + Vercel
 - **Acceptance:**
-  - [ ] `lib/rbac/admin.ts` สร้าง admin client ด้วย `service_role` key (`createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })`) — **server-only** (เพิ่ม `import "server-only"` ที่หัวไฟล์ กัน import หลุดไป client bundle)
-  - [ ] `lib/supabase/env.ts` เพิ่ม getter `getServiceRoleKey()` แบบ lazy (required เฉพาะตอนถูกเรียก ไม่ throw ตอน build) อ่าน `SUPABASE_SERVICE_ROLE_KEY` (ชื่อ **ไม่มี** `NEXT_PUBLIC_`)
-  - [ ] `.env.local.example` เพิ่ม `SUPABASE_SERVICE_ROLE_KEY=` พร้อม comment เตือนว่าเป็น secret ฝั่ง server เท่านั้น ห้าม commit ค่าจริง / ห้ามขึ้น `NEXT_PUBLIC_*`
-  - [ ] grep ทั้ง repo ยืนยันว่า `service_role`/`SUPABASE_SERVICE_ROLE_KEY` ไม่ถูก import จาก client component ใด ๆ
-  - [ ] `npm run lint && npm run build` ผ่าน clean (build ต้องไม่ต้องการ service_role key — lazy)
-- **⚠️ ต้องเพิ่ม env var (Get ทำเอง):** `SUPABASE_SERVICE_ROLE_KEY` — **local** ใส่ใน `.env.local` (ค่าของ project **dev**); **Vercel** Settings → Environment Variables scope **Production** ใส่ค่า service_role ของ **orderman-prod** (และ Preview ถ้าใช้ login บน preview). ⚠️ key ของ dev/prod คนละตัว — อย่าสลับ. service_role bypass RLS → ห้ามหลุดไป browser เด็ดขาด
-- **Notes:** `@supabase/supabase-js` มีอยู่แล้ว ไม่ต้องลง package ใหม่. admin client ใช้เฉพาะใน user-management actions (T29) — ไม่ใช้กับ data path ปกติ
+  - [x] `lib/rbac/admin.ts` สร้าง admin client ด้วย `service_role` key (`createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })`) — **server-only** (เพิ่ม `import "server-only"` ที่หัวไฟล์ กัน import หลุดไป client bundle)
+  - [x] `lib/supabase/env.ts` เพิ่ม getter `getServiceRoleKey()` แบบ lazy (required เฉพาะตอนถูกเรียก ไม่ throw ตอน build) อ่าน `SUPABASE_SERVICE_ROLE_KEY` (ชื่อ **ไม่มี** `NEXT_PUBLIC_`)
+  - [x] `.env.local.example` เพิ่ม `SUPABASE_SERVICE_ROLE_KEY=` พร้อม comment เตือนว่าเป็น secret ฝั่ง server เท่านั้น ห้าม commit ค่าจริง / ห้ามขึ้น `NEXT_PUBLIC_*`
+  - [x] grep ทั้ง repo ยืนยันว่า `service_role`/`SUPABASE_SERVICE_ROLE_KEY` ไม่ถูก import จาก client component ใด ๆ (ผู้อ้างอิงมีแค่ `lib/supabase/env.ts` + `lib/rbac/admin.ts` ฝั่ง server, docs/SQL/config และ `.env.local.example` — ไม่มี `"use client"` ไฟล์ใดอ้างถึง)
+  - [x] `npm run lint && npm run build` ผ่าน clean (build ผ่าน **โดยไม่ต้อง** set `SUPABASE_SERVICE_ROLE_KEY` — getter lazy; `import "server-only"` resolve ผ่าน Turbopack ของ Next 16 ได้แม้ package ไม่อยู่ใน node_modules โดยตรง)
+- **⚠️ ต้องเพิ่ม env var (Get ทำเอง — flagged user action, Claude ทำให้ไม่ได้):** `SUPABASE_SERVICE_ROLE_KEY` — **local** ใส่ใน `.env.local` (ค่าของ project **dev**); **Vercel** Settings → Environment Variables scope **Production** ใส่ค่า service_role ของ **orderman-prod** (และ Preview ถ้าใช้ login บน preview). ⚠️ key ของ dev/prod คนละตัว — อย่าสลับ. service_role bypass RLS → ห้ามหลุดไป browser เด็ดขาด
+- **Notes:** `@supabase/supabase-js` มีอยู่แล้ว ไม่ต้องลง package ใหม่. admin client ใช้เฉพาะใน user-management actions (T29) — ไม่ใช้กับ data path ปกติ. ตัว `lib/rbac/admin.ts` ยังไม่ถูก import จากที่ไหน (จึงไม่โผล่ใน route ของ build) — T29 จะเป็นตัวแรกที่เรียก
 
 ### T28 — Permission-based guard + proxy (cutover จาก role-in-JWT → DB permission)
 - **Priority:** P0 · **Size:** L · **Status:** Todo · **Depends on:** T26
