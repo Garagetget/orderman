@@ -9,7 +9,9 @@ export default async function OrderHistoryPage() {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("*, order_items(id, quantity, price, is_special, menus(name))")
+    .select(
+      "*, order_items(id, quantity, price, is_special, custom_name, menus(name))",
+    )
     .order("created_at", { ascending: false });
 
   return (

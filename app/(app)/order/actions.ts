@@ -5,11 +5,24 @@ import { revalidatePath } from "next/cache";
 import type { Json } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 
-export type OrderItemInput = {
+export type MenuItemInput = {
   menu_id: string;
   quantity: number;
   is_special?: boolean;
 };
+
+/** Off-menu line (T17): name + price typed by staff, no menus row to snapshot. */
+export type ManualItemInput = {
+  custom_name: string;
+  price: number;
+  quantity: number;
+};
+
+export type OrderItemInput = MenuItemInput | ManualItemInput;
+
+function isManualInput(item: OrderItemInput): item is ManualItemInput {
+  return "custom_name" in item;
+}
 
 export type CreateOrderResult =
   | { ok: true; orderId: string }
@@ -27,12 +40,25 @@ export async function createOrder(
     return { ok: false, error: "ยังไม่มีรายการในออเดอร์" };
   }
 
-  // Validate the payload server-side — never trust the client.
+  // Validate the payload server-side — never trust the client. (The RPC
+  // re-validates and snapshots menu prices; manual-line prices can only come
+  // from the client, so we reject anything not a finite, non-negative number.)
   for (const item of items) {
-    if (
-      typeof item?.menu_id !== "string" ||
-      !Number.isInteger(item?.quantity) ||
-      item.quantity < 1 ||
+    if (!item || !Number.isInteger(item.quantity) || item.quantity < 1) {
+      return { ok: false, error: "รายการออเดอร์ไม่ถูกต้อง" };
+    }
+    if (isManualInput(item)) {
+      if (
+        typeof item.custom_name !== "string" ||
+        item.custom_name.trim() === "" ||
+        typeof item.price !== "number" ||
+        !Number.isFinite(item.price) ||
+        item.price < 0
+      ) {
+        return { ok: false, error: "รายการนอกเมนูไม่ถูกต้อง" };
+      }
+    } else if (
+      typeof item.menu_id !== "string" ||
       (item.is_special !== undefined && typeof item.is_special !== "boolean")
     ) {
       return { ok: false, error: "รายการออเดอร์ไม่ถูกต้อง" };

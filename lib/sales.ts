@@ -94,6 +94,53 @@ export function summarize(
   };
 }
 
+export type SalesItem = {
+  // The parent order's timestamp — order_items has no created_at of its own.
+  created_at: string;
+  // Group key: the menu id, or `manual:<name>` for an off-menu line.
+  key: string;
+  // Current menu name (so a later rename shows through), or the manual line's
+  // typed name. order_items stores only menu_id + price for menu lines.
+  name: string;
+  quantity: number;
+  // Snapshotted unit price (surcharge already included for พิเศษ lines).
+  price: number;
+};
+
+export type MenuSalesRow = {
+  key: string;
+  name: string;
+  quantity: number;
+  revenue: number;
+};
+
+/** Per-menu quantity + revenue within the range, ranked by revenue (desc). */
+export function summarizeByMenu(
+  items: SalesItem[],
+  range: Range,
+): MenuSalesRow[] {
+  const byMenu = new Map<string, MenuSalesRow>();
+  for (const item of items) {
+    const t = Date.parse(item.created_at);
+    if (t < range.startMs || t > range.endMs) continue;
+
+    const revenue = item.price * item.quantity;
+    const existing = byMenu.get(item.key);
+    if (existing) {
+      existing.quantity += item.quantity;
+      existing.revenue += revenue;
+    } else {
+      byMenu.set(item.key, {
+        key: item.key,
+        name: item.name,
+        quantity: item.quantity,
+        revenue,
+      });
+    }
+  }
+  return [...byMenu.values()].sort((a, b) => b.revenue - a.revenue);
+}
+
 type Bucket = { label: string; startMs: number; endMs: number };
 
 function makeBuckets(period: Period, nowMs: number): Bucket[] {

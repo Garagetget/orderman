@@ -43,7 +43,7 @@ export function OrderTaker({
 
   function addItem(menu: Menu, isSpecial = false) {
     setCart((prev) => {
-      const id = cartLineId({ menu, isSpecial });
+      const id = cartLineId({ kind: "menu", menu, isSpecial });
       const existing = prev.find((line) => cartLineId(line) === id);
       if (existing) {
         return prev.map((line) =>
@@ -52,8 +52,15 @@ export function OrderTaker({
             : line,
         );
       }
-      return [...prev, { menu, quantity: 1, isSpecial }];
+      return [...prev, { kind: "menu", menu, quantity: 1, isSpecial }];
     });
+  }
+
+  function addManual(name: string, price: number) {
+    setCart((prev) => [
+      ...prev,
+      { kind: "manual", id: crypto.randomUUID(), name, price, quantity: 1 },
+    ]);
   }
 
   function changeQuantity(lineId: string, quantity: number) {
@@ -74,11 +81,19 @@ export function OrderTaker({
   function handleSave() {
     if (cart.length === 0) return;
 
-    const items = cart.map((line) => ({
-      menu_id: line.menu.id,
-      quantity: line.quantity,
-      is_special: line.isSpecial,
-    }));
+    const items = cart.map((line) =>
+      line.kind === "manual"
+        ? {
+            custom_name: line.name,
+            price: line.price,
+            quantity: line.quantity,
+          }
+        : {
+            menu_id: line.menu.id,
+            quantity: line.quantity,
+            is_special: line.isSpecial,
+          },
+    );
     const savedTotal = total;
 
     startSaving(async () => {
@@ -110,6 +125,7 @@ export function OrderTaker({
           saving={saving}
           onNoteChange={setNote}
           onChangeQuantity={changeQuantity}
+          onAddManual={addManual}
           onClear={clearCart}
           onSave={handleSave}
         />

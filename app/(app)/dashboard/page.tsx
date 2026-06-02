@@ -1,5 +1,6 @@
 import { DashboardView } from "@/components/dashboard-view";
 import { createClient } from "@/lib/supabase/server";
+import type { SalesItem } from "@/lib/sales";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +10,42 @@ export default async function DashboardPage() {
   // One trailing year of data covers every dashboard period (day → year).
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const since = oneYearAgo.toISOString();
 
-  const { data: orders, error } = await supabase
-    .from("orders")
-    .select("created_at, total")
-    .eq("status", "completed")
-    .gte("created_at", oneYearAgo.toISOString())
-    .order("created_at", { ascending: true });
+  const [ordersResult, itemsResult] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("created_at, total")
+      .eq("status", "completed")
+      .gte("created_at", since)
+      .order("created_at", { ascending: true }),
+    // Per-menu breakdown (T14). Inner-join orders for the same status/time
+    // filter; left-join menus (manual lines have no menu_id). Grouping +
+    // bucketing happens client-side in lib/sales, in sync with the cards' period.
+    supabase
+      .from("order_items")
+      .select(
+        "quantity, price, menu_id, custom_name, menus(name), orders!inner(created_at, status)",
+      )
+      .eq("orders.status", "completed")
+      .gte("orders.created_at", since),
+  ]);
+
+  const { data: orders, error } = ordersResult;
+  const { data: itemRows, error: itemsError } = itemsResult;
+
+  const items: SalesItem[] = (itemRows ?? []).map((row) => {
+    const isManual = row.menu_id === null;
+    return {
+      created_at: row.orders.created_at,
+      key: isManual ? `manual:${row.custom_name}` : row.menu_id!,
+      name: isManual
+        ? (row.custom_name ?? "รายการอื่น")
+        : (row.menus?.name ?? "—"),
+      quantity: row.quantity,
+      price: row.price,
+    };
+  });
 
   return (
     <div>
@@ -26,12 +56,12 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {error ? (
+      {error || itemsError ? (
         <p className="text-sm text-danger">
-          โหลดข้อมูลไม่สำเร็จ: {error.message}
+          โหลดข้อมูลไม่สำเร็จ: {(error ?? itemsError)?.message}
         </p>
       ) : (
-        <DashboardView orders={orders ?? []} />
+        <DashboardView orders={orders ?? []} items={items} />
       )}
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
+import { ManualItemDialog } from "@/components/manual-item-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,15 +17,41 @@ import { Separator } from "@/components/ui/separator";
 import type { Menu } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
 
-export type CartLine = { menu: Menu; quantity: number; isSpecial: boolean };
+export type MenuCartLine = {
+  kind: "menu";
+  menu: Menu;
+  quantity: number;
+  isSpecial: boolean;
+};
 
-/** Stable key separating the ธรรมดา and พิเศษ variants of the same menu. */
-export function cartLineId(line: Pick<CartLine, "menu" | "isSpecial">) {
+/** An off-menu line typed in by staff (T17): its own name + price. */
+export type ManualCartLine = {
+  kind: "manual";
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+};
+
+export type CartLine = MenuCartLine | ManualCartLine;
+
+/** Stable key per cart line; separates the ธรรมดา and พิเศษ menu variants. */
+export function cartLineId(
+  line:
+    | Pick<MenuCartLine, "kind" | "menu" | "isSpecial">
+    | Pick<ManualCartLine, "kind" | "id">,
+) {
+  if (line.kind === "manual") return `manual:${line.id}`;
   return line.isSpecial ? `${line.menu.id}:special` : line.menu.id;
 }
 
 /** Charged price per unit, surcharge included for the พิเศษ variant. */
-export function cartLineUnitPrice(line: Pick<CartLine, "menu" | "isSpecial">) {
+export function cartLineUnitPrice(
+  line:
+    | Pick<MenuCartLine, "kind" | "menu" | "isSpecial">
+    | Pick<ManualCartLine, "kind" | "price">,
+) {
+  if (line.kind === "manual") return line.price;
   return (
     line.menu.price + (line.isSpecial ? (line.menu.special_surcharge ?? 0) : 0)
   );
@@ -38,6 +65,7 @@ type OrderCartProps = {
   onNoteChange: (note: string) => void;
   /** Pass quantity 0 (or less) to remove the line. */
   onChangeQuantity: (lineId: string, quantity: number) => void;
+  onAddManual: (name: string, price: number) => void;
   onClear: () => void;
   onSave: () => void;
 };
@@ -49,6 +77,7 @@ export function OrderCart({
   saving,
   onNoteChange,
   onChangeQuantity,
+  onAddManual,
   onClear,
   onSave,
 }: OrderCartProps) {
@@ -69,18 +98,24 @@ export function OrderCart({
         ) : (
           <ul className="space-y-3">
             {lines.map((line) => {
-              const { menu, quantity, isSpecial } = line;
               const lineId = cartLineId(line);
               const unitPrice = cartLineUnitPrice(line);
+              const { quantity } = line;
+              const name = line.kind === "manual" ? line.name : line.menu.name;
 
               return (
                 <li key={lineId} className="flex items-center gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
-                      {menu.name}
-                      {isSpecial && (
+                      {name}
+                      {line.kind === "menu" && line.isSpecial && (
                         <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                           พิเศษ
+                        </span>
+                      )}
+                      {line.kind === "manual" && (
+                        <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-light text-secondary">
+                          นอกเมนู
                         </span>
                       )}
                     </p>
@@ -134,6 +169,8 @@ export function OrderCart({
             })}
           </ul>
         )}
+
+        <ManualItemDialog onAdd={onAddManual} />
 
         <div className="space-y-1.5">
           <Label htmlFor="order-note">หมายเหตุ</Label>
