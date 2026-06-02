@@ -10,6 +10,18 @@
 --
 --  Still idempotent, so it can be pasted into the SQL editor in a
 --  pinch — but prefer migrations so prod history stays in sync.
+--
+--  ⚠️ STALE (as of T30, 2026-06-02): this snapshot is BEHIND the Phase 5
+--  migrations and does NOT contain the RBAC objects:
+--    - 20260602010000_rbac_foundation       (roles/permissions/role_permissions/
+--                                             user_roles + auth_has_permission/
+--                                             auth_user_permissions + RLS + backfill)
+--    - 20260602020000_rbac_menu_write_policies (menus/categories write gated by
+--                                             auth_has_permission('menu.manage'))
+--  Regen was blocked because `supabase db dump` needs Docker (off on this machine).
+--  Source of truth meanwhile = the migration files + supabase/rbac/rbac.sql.
+--  Regenerate once Docker is available:
+--    npx supabase db dump --linked -f supabase/schema.sql
 -- ============================================================
 
 -- ---------- Tables ----------

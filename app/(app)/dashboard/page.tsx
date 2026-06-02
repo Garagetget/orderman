@@ -1,10 +1,14 @@
 import { DashboardView } from "@/components/dashboard-view";
+import { requirePermission } from "@/lib/rbac/guards";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 import type { SalesItem } from "@/lib/sales";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await requirePermission(PERMISSIONS.DASHBOARD_VIEW);
+
   const supabase = await createClient();
 
   // One trailing year of data covers every dashboard period (day → year).

@@ -1,10 +1,14 @@
 import type { OrderWithItems } from "@/components/order-history-view";
 import { OrderHistoryView } from "@/components/order-history-view";
+import { requirePermission } from "@/lib/rbac/guards";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrderHistoryPage() {
+  await requirePermission(PERMISSIONS.ORDER_HISTORY_VIEW);
+
   const supabase = await createClient();
 
   const { data, error } = await supabase

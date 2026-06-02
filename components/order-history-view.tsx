@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   ChevronDown,
   Minus,
   Pencil,
   Plus,
+  Printer,
   Receipt,
   RotateCcw,
   Trash2,
@@ -15,6 +16,7 @@ import {
 import { toast } from "sonner";
 
 import { cancelOrder, updateOrderItems } from "@/app/(app)/order-history/actions";
+import { ReceiptPrint } from "@/components/receipt-print";
 import { Button } from "@/components/ui/button";
 import type { Order, OrderItem } from "@/lib/database.types";
 import { formatBaht } from "@/lib/format";
@@ -44,6 +46,24 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
   // Item ids the user marked for removal in the current edit session.
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
+  // Order to print: rendered into the print-only receipt, then window.print().
+  const [printing, setPrinting] = useState<OrderWithItems | null>(null);
+
+  useEffect(() => {
+    if (!printing) return;
+    // Two frames so the receipt is painted before the print snapshot.
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => {
+        window.print();
+        setPrinting(null);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [printing]);
 
   if (orders.length === 0) {
     return (
@@ -126,6 +146,7 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
 
   return (
     <div className="space-y-3">
+      {printing && <ReceiptPrint order={printing} />}
       {orders.map((order) => {
         const isOpen = openId === order.id;
         const isCancelled = order.status === "cancelled";
@@ -312,33 +333,47 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                   </div>
                 )}
 
-                {/* Actions — hidden for cancelled orders (immutable). */}
-                {!isCancelled && (
-                  <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
-                    {mode === "view" && (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="rounded-lg border border-border bg-surface px-4 py-2.5 hover:bg-muted"
-                          onClick={() => startEdit(order)}
-                        >
-                          <Pencil className="size-3.5" />
-                          แก้ไข
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="rounded-lg border border-danger bg-transparent px-4 py-2.5 text-danger hover:bg-danger/10 hover:text-danger"
-                          onClick={() => setMode("confirmCancel")}
-                        >
-                          <X className="size-3.5" />
-                          ยกเลิกออเดอร์
-                        </Button>
-                      </>
-                    )}
+                {/* Actions — edit/cancel hidden for cancelled orders (immutable),
+                    but printing a receipt stays available for any order. */}
+                <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+                  {mode === "view" && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="rounded-lg border border-border bg-surface px-4 py-2.5 hover:bg-muted"
+                        disabled={pending || printing !== null}
+                        onClick={() => setPrinting(order)}
+                      >
+                        <Printer className="size-3.5" />
+                        พิมพ์ใบเสร็จ
+                      </Button>
+                      {!isCancelled && (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="rounded-lg border border-border bg-surface px-4 py-2.5 hover:bg-muted"
+                            onClick={() => startEdit(order)}
+                          >
+                            <Pencil className="size-3.5" />
+                            แก้ไข
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="rounded-lg border border-danger bg-transparent px-4 py-2.5 text-danger hover:bg-danger/10 hover:text-danger"
+                            onClick={() => setMode("confirmCancel")}
+                          >
+                            <X className="size-3.5" />
+                            ยกเลิกออเดอร์
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
 
-                    {mode === "edit" && (
+                  {!isCancelled && mode === "edit" && (
                       <>
                         <Button
                           type="button"
@@ -360,7 +395,7 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                       </>
                     )}
 
-                    {mode === "confirmCancel" && (
+                  {!isCancelled && mode === "confirmCancel" && (
                       <div className="flex w-full flex-wrap items-center justify-end gap-2">
                         <span className="mr-auto text-sm text-secondary">
                           ยืนยันยกเลิกออเดอร์นี้?
@@ -385,8 +420,7 @@ export function OrderHistoryView({ orders }: { orders: OrderWithItems[] }) {
                         </Button>
                       </div>
                     )}
-                  </div>
-                )}
+                </div>
               </div>
             )}
           </div>

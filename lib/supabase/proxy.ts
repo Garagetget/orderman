@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 import type { Database } from "@/lib/database.types";
+import { requiredPermissionForPath } from "@/lib/rbac/permissions";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 const PUBLIC_PATHS = ["/login"];
@@ -52,6 +53,26 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/order";
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Permission gate (T28): cutover from role-in-JWT to DB-resolved permission.
+  // The required permission is resolved by path, then checked against the DB via
+  // auth_has_permission() — one RPC per gated request (the +1 roundtrip Get
+  // approved). Permission changes therefore take effect immediately, no re-login.
+  // Users lacking the permission bounce to /order (the lowest common page).
+  if (user) {
+    const requiredPermission = requiredPermissionForPath(pathname);
+    if (requiredPermission) {
+      const { data: allowed } = await (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        supabase.rpc as any
+      )("auth_has_permission", { p_permission: requiredPermission });
+      if (allowed !== true) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/order";
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
   }
 
   return supabaseResponse;

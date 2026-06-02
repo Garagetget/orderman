@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import type { MenuCategory } from "@/lib/database.types";
+import { hasPermission } from "@/lib/rbac/guards";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export type MenuActionResult = { ok: true } | { ok: false; error: string };
@@ -54,6 +56,8 @@ export async function createMenu(input: MenuInput): Promise<MenuActionResult> {
 
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+  if (!(await hasPermission(PERMISSIONS.MENU_MANAGE)))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
 
   const { error } = await supabase.from("menus").insert({
     name: input.name.trim(),
@@ -86,6 +90,8 @@ export async function updateMenu(
 
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+  if (!(await hasPermission(PERMISSIONS.MENU_MANAGE)))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
 
   // Editing price here does NOT touch past orders — order_items snapshots the
   // price at save time, so historical revenue stays correct.
@@ -126,6 +132,8 @@ export async function setMenuAvailability(
 
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+  if (!(await hasPermission(PERMISSIONS.MENU_MANAGE)))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
 
   const { error } = await supabase
     .from("menus")
@@ -150,6 +158,8 @@ export async function createCategory(name: string): Promise<MenuActionResult> {
 
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+  if (!(await hasPermission(PERMISSIONS.MENU_MANAGE)))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
 
   // New categories sort to the end of the list.
   const { data: last } = await supabase
@@ -189,6 +199,8 @@ export async function renameCategory(
 
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+  if (!(await hasPermission(PERMISSIONS.MENU_MANAGE)))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
 
   const { error } = await supabase
     .from("categories")
@@ -214,6 +226,8 @@ export async function deleteCategory(name: string): Promise<MenuActionResult> {
 
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+  if (!(await hasPermission(PERMISSIONS.MENU_MANAGE)))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
 
   const { error } = await supabase.from("categories").delete().eq("name", name);
 

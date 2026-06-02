@@ -8,21 +8,34 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  UserCog,
   UtensilsCrossed,
 } from "lucide-react";
 
 import { signOut } from "@/app/auth/actions";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { cn } from "@/lib/utils";
 
+// Each link declares the permission required to see it — only users holding that
+// permission ever see the link. "จัดการผู้ใช้" (/admin/users, T29) is gated by
+// user.manage so staff never see it.
 const LINKS = [
-  { href: "/order", label: "จดออเดอร์", icon: ClipboardList },
-  { href: "/order-history", label: "ประวัติ", icon: History },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/menu", label: "จัดการเมนู", icon: UtensilsCrossed },
+  { href: "/order", label: "จดออเดอร์", icon: ClipboardList, permission: PERMISSIONS.ORDER_CREATE },
+  { href: "/order-history", label: "ประวัติ", icon: History, permission: PERMISSIONS.ORDER_HISTORY_VIEW },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: PERMISSIONS.DASHBOARD_VIEW },
+  { href: "/menu", label: "จัดการเมนู", icon: UtensilsCrossed, permission: PERMISSIONS.MENU_MANAGE },
+  { href: "/admin/users", label: "จัดการผู้ใช้", icon: UserCog, permission: PERMISSIONS.USER_MANAGE },
 ] as const;
 
-export function AppNav({ userEmail }: { userEmail: string }) {
+export function AppNav({
+  userEmail,
+  permissions,
+}: {
+  userEmail: string;
+  permissions: string[];
+}) {
   const pathname = usePathname();
+  const links = LINKS.filter((link) => permissions.includes(link.permission));
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface shadow-sm">
@@ -35,7 +48,7 @@ export function AppNav({ userEmail }: { userEmail: string }) {
         </Link>
 
         <nav className="flex items-center gap-1 sm:gap-2">
-          {LINKS.map(({ href, label, icon: Icon }) => {
+          {links.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
