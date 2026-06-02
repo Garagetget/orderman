@@ -5,7 +5,7 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-02 (T28 done — permission-based guard + proxy cutover จาก role-in-JWT → DB permission; menu/category write RLS อิง auth_has_permission('menu.manage'); migration `20260602020000` applied to dev; ลบ lib/roles.ts + lib/supabase/guards.ts. pending: regen schema.sql (Docker))
+> Last updated: 2026-06-02 (T29 done — หน้า /admin/users + user-management server actions ผ่าน service_role admin client; nav link "จัดการผู้ใช้" gated `user.manage`; self-demote/self-delete/last-owner ถูกบล็อก; lint+build ผ่าน clean โดยไม่ต้อง set service_role key. pending: Get set `SUPABASE_SERVICE_ROLE_KEY` ใน .env.local แล้ว live-test; regen schema.sql (Docker))
 
 ---
 
@@ -101,20 +101,21 @@ _(none)_
 - **Notes:** จุด cutover — `app_metadata.role` เลิกถูกอ่านแล้ว (ยังไม่ลบจาก DB, เก็บเผื่อ rollback). proxy ทำ rpc 1 ครั้ง/request ตาม decision. **pending:** regen `supabase/schema.sql` snapshot (ต้องใช้ Docker — เครื่องนี้ปิด); migration เป็น source of truth
 
 ### T29 — หน้า /admin/users + user-management server actions
-- **Priority:** P1 · **Size:** L · **Status:** Todo · **Depends on:** T26, T27, T28
-- **Scope:** `app/(app)/admin/users/page.tsx` (+ container component), `app/(app)/admin/users/actions.ts`, `app-nav.tsx`
+- **Priority:** P1 · **Size:** L · **Status:** Done (2026-06-02) · **Depends on:** T26, T27, T28
+- **Scope:** `app/(app)/admin/users/page.tsx` (+ `components/admin-users-view.tsx`), `app/(app)/admin/users/actions.ts`, `components/app-nav.tsx`
 - **Acceptance:**
-  - [ ] หน้า `/admin/users` เข้าได้เฉพาะผู้มี `user.manage` (gate ทั้ง proxy + `requirePermission` ใน page); staff โดน redirect
-  - [ ] แสดงรายชื่อ user (email + role ที่ assign) — ดึงผ่าน admin client (`auth.admin.listUsers()` + join `user_roles`)
-  - [ ] เพิ่ม staff ใหม่: กรอก email + password → server action สร้าง auth user (`auth.admin.createUser`, `email_confirm: true`) + assign role ที่เลือก เขียน `user_roles` ผ่าน admin client
-  - [ ] เปลี่ยน role ของ user ที่มีอยู่ (assign/unassign) ผ่าน server action
-  - [ ] ลบ user: `auth.admin.deleteUser` (cascade ลบ `user_roles`)
-  - [ ] **ทุก server action re-check ผู้เรียกมี `user.manage` ก่อนทำงานเสมอ** (ไม่พึ่ง proxy อย่างเดียว) — `{ ok:false, error:"ไม่มีสิทธิ์" }` ถ้าไม่มี
-  - [ ] **กัน lockout/self-escalation:** ห้ามผู้เรียกถอด role `user.manage`/owner ของ **ตัวเอง** และห้ามลบ/ถอด owner คนสุดท้าย (เช็ค count) → ปฏิเสธพร้อมข้อความไทย. **verify:** owner คนเดียวลองถอดสิทธิ์ตัวเอง → ถูกบล็อก
-  - [ ] `app-nav.tsx` โชว์ลิงก์ "จัดการผู้ใช้" เฉพาะผู้มี `user.manage`
-  - [ ] UI ตาม DESIGN.md (layout template, page header, rows `rounded-xl border`, ปุ่มเพิ่ม = primary, ลบ = danger outline, empty state, toast feedback)
-  - [ ] `npm run lint && npm run build` ผ่าน clean
-- **Notes:** ทุก mutation ใช้ admin client (service_role) ฝั่ง server เท่านั้น — client component ส่งแค่ค่า form ผ่าน action, ไม่เคยเห็น service_role key. password ใหม่ส่งผ่าน action over HTTPS; พิจารณา min length validate ฝั่ง server. ไม่ทำ password reset เอง (ใช้ Supabase Auth flow เดิม)
+  - [x] หน้า `/admin/users` เข้าได้เฉพาะผู้มี `user.manage` (gate ทั้ง proxy via `ROUTE_PERMISSIONS` `/admin`→`user.manage` + `requirePermission` ใน page); staff โดน redirect ไป `/order`
+  - [x] แสดงรายชื่อ user (email + role ที่ assign) — ดึงผ่าน admin client (`auth.admin.listUsers()` + join `user_roles` + `roles` สำหรับ label)
+  - [x] เพิ่ม staff ใหม่: กรอก email + password → server action สร้าง auth user (`auth.admin.createUser`, `email_confirm: true`) + assign role ที่เลือก เขียน `user_roles` ผ่าน admin client (rollback auth user ถ้า assign role ล้ม)
+  - [x] เปลี่ยน role ของ user ที่มีอยู่ (assign/unassign) ผ่าน server action (`setUserRole` — one-role-per-user: delete เก่า insert ใหม่)
+  - [x] ลบ user: `auth.admin.deleteUser` (cascade ลบ `user_roles`)
+  - [x] **ทุก server action re-check ผู้เรียกมี `user.manage` ก่อนทำงานเสมอ** (ไม่พึ่ง proxy อย่างเดียว) — `{ ok:false, error:"ไม่มีสิทธิ์" }` ถ้าไม่มี
+  - [x] **กัน lockout/self-escalation:** ห้ามผู้เรียกถอด role owner ของ **ตัวเอง** (`setUserRole` reject + UI disable Select), ห้ามลบบัญชีตัวเอง (`deleteUser` reject + UI disable), และห้ามลบ/ถอด owner คนสุดท้าย (count check ผ่าน admin client) → ปฏิเสธพร้อมข้อความไทย
+  - [x] `app-nav.tsx` โชว์ลิงก์ "จัดการผู้ใช้" (`/admin/users`) เฉพาะผู้มี `user.manage`
+  - [x] UI ตาม DESIGN.md (layout template, page header, rows `rounded-xl border`, ปุ่มเพิ่ม = primary, ลบ = danger outline, empty state, toast feedback, FormDialog/Select แบบเดียวกับ menu-manager)
+  - [x] `npm run lint && npm run build` ผ่าน clean (build ผ่าน **โดยไม่ต้อง** set `SUPABASE_SERVICE_ROLE_KEY` — `createAdminClient()` ถูกเรียกใน request/action handler เท่านั้น ไม่ใช่ module scope จึง getter ไม่ resolve ตอน build; `/admin/users` เป็น dynamic route)
+- **⚠️ pending live test (Get):** ยังทดสอบ live ไม่ได้เพราะ `SUPABASE_SERVICE_ROLE_KEY` ยังไม่ได้ set (action ของ Get จาก T27). หลัง Get ใส่ dev service_role key ใน `.env.local` แล้ว ค่อย smoke-test: เปิด `/admin/users` (owner), เพิ่ม/เปลี่ยน role/ลบ user, ลองถอดสิทธิ์ตัวเอง → ต้องถูกบล็อก
+- **Notes:** ทุก mutation ใช้ admin client (service_role) ฝั่ง server เท่านั้น — client component ส่งแค่ค่า form ผ่าน action, ไม่เคยเห็น service_role key. password validate ฝั่ง server (≥8 ตัว) + email shape + role ∈ {owner,staff}. duplicate email map เป็นข้อความไทย. ไม่ทำ password reset เอง (ใช้ Supabase Auth flow เดิม). RBAC tables (`roles`/`user_roles`) ยังไม่อยู่ใน generated types (snapshot ยังไม่ regen — ไม่มี Docker) → query ผ่าน localized `as any` cast เหมือน `lib/rbac/guards.ts`
 
 ### T30 — Docs + portability packaging + cleanup
 - **Priority:** P2 · **Size:** S–M · **Status:** Todo · **Depends on:** T26, T27, T28, T29
