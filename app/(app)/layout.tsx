@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AppNav } from "@/components/app-nav";
+import { roleFromMetadata } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
 // Belt-and-suspenders: middleware already gates these routes, but verifying
@@ -19,9 +20,11 @@ export default async function AppLayout({
     redirect("/login");
   }
 
+  const role = roleFromMetadata(user.app_metadata);
+
   return (
     <div className="flex min-h-svh flex-col">
-      <AppNav userEmail={user.email ?? ""} />
+      <AppNav userEmail={user.email ?? ""} role={role} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6 lg:px-8">
         {children}
       </main>

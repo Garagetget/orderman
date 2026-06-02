@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 import type { Database } from "@/lib/database.types";
+import { isOwnerOnlyPath, roleFromMetadata } from "@/lib/roles";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 const PUBLIC_PATHS = ["/login"];
@@ -49,6 +50,18 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && pathname === "/login") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/order";
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // Role gate (T16): staff may only reach the order pages. Owner-only routes
+  // (dashboard, menu management) bounce staff back to /order.
+  if (
+    user &&
+    isOwnerOnlyPath(pathname) &&
+    roleFromMetadata(user.app_metadata) !== "owner"
+  ) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/order";
     return NextResponse.redirect(redirectUrl);
