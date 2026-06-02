@@ -65,7 +65,7 @@ export function ManualItemDialog({
         }
       >
         <Plus className="size-4" />
-        เพิ่มรายการเอง
+        เพิ่มรายการนอกเมนู
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-sm">
