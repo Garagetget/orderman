@@ -99,6 +99,7 @@ function UserRow({
         {/* Self can't demote out of owner — disable to make it obvious; the
             server action still rejects it regardless. */}
         <Select
+          items={roleOptions.map((r) => ({ value: r.key, label: r.label }))}
           value={currentRole || undefined}
           onValueChange={(value) => {
             if (value && value !== currentRole) onChangeRole(value);
@@ -310,6 +311,7 @@ export function AdminUsersView({
             <div className="space-y-1.5">
               <Label htmlFor="user-role">บทบาท</Label>
               <Select
+                items={roleOptions.map((r) => ({ value: r.key, label: r.label }))}
                 value={draft.role || undefined}
                 onValueChange={(value) =>
                   setDraft({ ...draft, role: value ?? "" })
