@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 import { signOut } from "@/app/auth/actions";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/order", label: "จดออเดอร์", icon: ClipboardList },
@@ -25,21 +25,29 @@ export function AppNav({ userEmail }: { userEmail: string }) {
   const pathname = usePathname();
 
   return (
-    <header className="border-b bg-background">
-      <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-1 px-4">
-        <span className="mr-3 text-lg font-bold text-primary sm:mr-5">orderman</span>
+    <header className="sticky top-0 z-50 border-b border-border bg-surface shadow-sm">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-1 px-4 md:px-6 lg:px-8">
+        <Link
+          href="/order"
+          className="mr-2 text-xl font-bold text-primary sm:mr-5"
+        >
+          orderman
+        </Link>
 
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-1 sm:gap-2">
           {LINKS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
                 key={href}
                 href={href}
-                className={buttonVariants({
-                  variant: active ? "secondary" : "ghost",
-                  size: "sm",
-                })}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "inline-flex h-14 items-center gap-1.5 border-b-2 px-2 text-sm font-medium transition-colors focus-visible:text-primary focus-visible:outline-none sm:px-3",
+                  active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-secondary hover:text-primary",
+                )}
               >
                 <Icon className="size-4" />
                 <span className="hidden sm:inline">{label}</span>
@@ -48,15 +56,18 @@ export function AppNav({ userEmail }: { userEmail: string }) {
           })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-3">
-          <span className="hidden text-sm text-muted-foreground md:inline">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <span className="hidden text-xs text-secondary md:inline">
             {userEmail}
           </span>
           <form action={signOut}>
-            <Button type="submit" variant="outline" size="sm">
+            <button
+              type="submit"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-secondary transition-all hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
               <LogOut className="size-4" />
               <span className="hidden sm:inline">ออกจากระบบ</span>
-            </Button>
+            </button>
           </form>
         </div>
       </div>
