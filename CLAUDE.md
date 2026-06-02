@@ -26,18 +26,22 @@ This version has breaking changes — APIs, conventions, and file structure may 
   - `dashboard/page.tsx` — sales summary page (server component → `dashboard-view` container)
   - `order-history/page.tsx` — order history page (server component → `order-history-view` container)
   - `order-history/actions.ts` — `cancelOrder` / `updateOrderItems` server actions (T12; `updateOrderItems` calls the `update_order_items()` RPC)
+  - `admin/users/page.tsx` — user-management page (RBAC, owner-only via `user.manage` → `admin-users-view` container)
+  - `admin/users/actions.ts` — user-management server actions (create/delete user, `setUserRole`) via the service-role admin client (T29)
 - `app/auth/actions.ts` — `login` / `signOut` server actions
 - `proxy.ts` — Next.js 16 auth gate (was `middleware.ts` in older versions). Delegates to `lib/supabase/proxy.ts#updateSession`
 - `components/` — feature components
   - Containers (`"use client"`, wire actions to UI): `order-taker.tsx`, `dashboard-view.tsx`, `order-history-view.tsx`
   - Presentational: `menu-grid.tsx`, `order-cart.tsx`, `sales-cards.tsx`, `sales-chart.tsx`, `app-nav.tsx`
 - `components/ui/` — shadcn components (don't edit manually unless asked)
-- `lib/supabase/` — Supabase helpers: `client.ts` (browser), `server.ts` (RSC/actions), `proxy.ts` (session refresh in auth gate), `env.ts` (lazy env validation)
+- `lib/supabase/` — Supabase helpers: `client.ts` (browser), `server.ts` (RSC/actions), `proxy.ts` (session refresh + permission gate in auth gate), `env.ts` (lazy env validation, incl. `getServiceRoleKey()`)
+- `lib/rbac/` — RBAC layer: `permissions.ts` (app-specific permission catalog + `ROUTE_PERMISSIONS` map + `requiredPermissionForPath()`), `guards.ts` (`getCurrentPermissions()` / `requirePermission()` / `hasPermission()` — resolve via `auth_user_permissions` / `auth_has_permission` RPC), `admin.ts` (server-only service-role admin client). Replaced the removed `lib/roles.ts` + `lib/supabase/guards.ts` (T16-era `roleFromMetadata`/`requireOwner`/`isOwner`)
 - `lib/sales.ts` — sales aggregation in fixed Bangkok time (UTC+7)
 - `lib/format.ts` — Thai baht formatter
-- `lib/database.types.ts` — generated DB types
+- `lib/database.types.ts` — generated DB types (RBAC tables/RPCs not yet in here — snapshot regen pending Docker; queried via localized `as any` cast)
 - `supabase/migrations/` — **source of truth** for DB schema (CLI migrations). Apply with `npx supabase db push`
-- `supabase/schema.sql` — human-readable schema SNAPSHOT (RLS, `create_order()` + `update_order_items()` RPCs, menu seed). Regenerate after a migration via `npx supabase db dump --linked -f supabase/schema.sql`
+- `supabase/schema.sql` — human-readable schema SNAPSHOT (RLS, `create_order()` + `update_order_items()` RPCs, menu seed). Regenerate after a migration via `npx supabase db dump --linked -f supabase/schema.sql`. **Currently behind the Phase 5 migrations** (`20260602010000`, `20260602020000`) — regen blocked on Docker; migrations + `rbac.sql` are source of truth meanwhile
+- `supabase/rbac/rbac.sql` — portable RBAC layer (tables + helper functions + RLS + app seed); self-contained, idempotent, copyable to another project (edit only the seed catalog)
 - `supabase/config.toml` — Supabase CLI config (committed; no secrets)
 
 ## Scripts
@@ -81,6 +85,7 @@ only decides where `db push` lands.
   (Settings → Environment Variables, scope **Production**):
   - `NEXT_PUBLIC_SUPABASE_URL` = `https://jtjevgotgajdulkyikkj.supabase.co`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the **anon** key of `orderman-prod` (never service_role)
+  - `SUPABASE_SERVICE_ROLE_KEY` = the **service_role** key of `orderman-prod` (server-only, **no** `NEXT_PUBLIC_` prefix — used by `/admin/users`; dev/prod keys differ, don't swap). Set the dev project's service_role key in local `.env.local`
 - dev never touches Vercel prod — it reads `.env.local` (the dev project) locally
 - env changes don't apply to the live deployment until a **Redeploy** (or a new push)
 - after changing the DB schema on `main`/prod, smoke-test by logging into the deployed app and
@@ -93,7 +98,10 @@ only decides where `db push` lands.
 - **Orders are atomic.** Order + items insert in one transaction via `create_order()`. Don't split into two client-side inserts.
 - **The "พิเศษ" (extra portion) variant** adds `menus.special_surcharge` to the unit price. `special_surcharge = NULL` means the menu has no พิเศษ option, and requesting `is_special` on it raises in the RPC.
 - **Dashboard counts `status = 'completed'` only** and buckets dates in fixed UTC+7 — keep this invariant if you touch `lib/sales.ts`.
-- **Anon key only in `NEXT_PUBLIC_*`.** Never put the `service_role` key in a `NEXT_PUBLIC_*` var — it bypasses RLS and ships to the browser.
+- **Authorization is permission-based (RBAC), resolved by DB query per request.** Permissions come from `user_roles` → `role_permissions` via the SECURITY DEFINER helpers `auth_has_permission(perm)` / `auth_user_permissions()` — not from `app_metadata` / JWT claims. So a role change takes effect **immediately, no re-login**. `app_metadata.role` (T16-era) is **no longer read** — kept in the DB only for rollback safety; `user_roles` is authoritative.
+- **RBAC tables are written only via the service_role admin client** (`lib/rbac/admin.ts`) inside permission-checked server actions (T29 `/admin/users`). RLS gives `authenticated` SELECT but no write policy → normal-session writes are denied → a user cannot self-escalate. Never write `user_roles`/`role_permissions` from a normal session.
+- **Menus/categories writes are gated at the RLS layer too** by `auth_has_permission('menu.manage')` (migration `20260602020000`), in addition to the `hasPermission(MENU_MANAGE)` check in the menu server actions — defense-in-depth.
+- **Anon key only in `NEXT_PUBLIC_*`.** Never put the `service_role` key in a `NEXT_PUBLIC_*` var — it bypasses RLS and ships to the browser. The admin client reads `SUPABASE_SERVICE_ROLE_KEY` (server-only, no `NEXT_PUBLIC_` prefix) via `getServiceRoleKey()`.
 
 ## Conventions specific to this project
 - Component files: kebab-case (`menu-grid.tsx`, `sales-chart.tsx`)
