@@ -22,7 +22,7 @@ _(none)_
 - [x] **T14** ยอดขายรายเมนูบน Dashboard · P2 · M
 - [ ] **T15** พิมพ์ใบเสร็จ · P2 · S _(depends on T11)_
 - [ ] **T16** สิทธิ์ผู้ใช้ (Owner vs. Staff) · P2 · L
-- [ ] **T17** จดออเดอร์แบบ manual (รายการนอกเมนู) · P2 · M
+- [x] **T17** จดออเดอร์แบบ manual (รายการนอกเมนู) · P2 · M
 
 แนะนำลำดับการทำ: **T13 → T15 → T14 → T16**
 
@@ -75,15 +75,14 @@ _(none)_
 - **Notes / ต้องตัดสินใจก่อนเริ่ม:** RLS ปัจจุบันเปิดให้ `authenticated` ทำได้ทุกอย่าง (`using (true)`). ถ้าจะบล็อก staff ระดับ DB จริง ต้องเขียน policy อิง `auth.jwt() -> role` ใหม่ทุกตาราง (effort สูงกว่า L). ถ้าแค่ proxy gate (block route) ก็พอสำหรับ use case ร้านเดียว — เจ้าของเลือกระดับความเข้ม.
 
 ### T17 — จดออเดอร์แบบ manual (รายการนอกเมนู)
-- **Priority:** P2 · **Size:** M · **Status:** Todo · **Depends on:** —
+- **Priority:** P2 · **Size:** M · **Status:** Done (2026-06-02) · **Depends on:** —
 - **ไอเดีย (จาก Get 2026-06-01):** อยากเพิ่มรายการที่ไม่มีในเมนูลงออเดอร์ได้ — กรอกชื่อ + ราคาเอง (เช่นเมนูพิเศษ off-menu / ของฝากลูกค้า)
-- **ต้องตัดสินใจ design ก่อน:** `order_items.menu_id` เป็น NOT NULL FK → ทำ manual item ต้องเลือกทางใดทางหนึ่ง:
-  - (a) ทำ `menu_id` nullable + เพิ่มคอลัมน์ `custom_name` ใน `order_items` (migration + แก้ `create_order()` RPC ให้รับ snapshot price จาก client เฉพาะ manual item — ⚠️ เปิดช่อง client กำหนดราคาเอง ต้อง validate)
-  - (b) สร้าง menu ad-hoc (is_available=false) ตอนจด แล้วอ้างอิงปกติ — ไม่ต้องแก้ schema แต่เมนูรกขึ้น
-- **Acceptance (ร่าง — รอ finalize):**
-  - [ ] หน้า `/order` มีปุ่ม "เพิ่มรายการเอง" กรอกชื่อ + ราคา + จำนวน
-  - [ ] รายการ manual เข้าออเดอร์ + นับใน total/dashboard ถูกต้อง
-  - [ ] ราคา manual ถูก validate server-side (กันค่าติดลบ/ผิดรูปแบบ)
+- **Design ที่เลือก (Get 2026-06-02):** ทางเลือก (a) — `menu_id` nullable + คอลัมน์ `custom_name` ใน `order_items`. CHECK บังคับ menu-line XOR manual-line และห้าม พิเศษ บน manual line. `create_order()` validate ราคา manual ว่าเป็นตัวเลข ≥ 0 server-side (ไม่มี menus row ให้ snapshot). migration: `20260602000000_manual_order_items.sql`.
+- **Acceptance:**
+  - [x] หน้า `/order` มีปุ่ม "เพิ่มรายการเอง" กรอกชื่อ + ราคา + จำนวน
+  - [x] รายการ manual เข้าออเดอร์ + นับใน total/dashboard ถูกต้อง (per-menu breakdown group ตามชื่อ)
+  - [x] ราคา manual ถูก validate server-side (กันค่าติดลบ/ผิดรูปแบบ) ทั้งใน action + RPC
+- **⚠️ ต้อง `npm run db:push` ลง dev ก่อนใช้งาน** (Get รันเอง — ใส่ DB password); หลัง merge ขึ้น prod ต้อง push ลง prod ด้วย
 
 ---
 
