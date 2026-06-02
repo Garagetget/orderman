@@ -1,9 +1,12 @@
 import { MenuManager } from "@/components/menu-manager";
+import { requireOwner } from "@/lib/supabase/guards";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function MenuPage() {
+  await requireOwner();
+
   const supabase = await createClient();
   // Unlike the order page, show ALL menus here (including disabled ones) so the
   // owner can re-enable them.

@@ -1,10 +1,13 @@
 import { DashboardView } from "@/components/dashboard-view";
+import { requireOwner } from "@/lib/supabase/guards";
 import { createClient } from "@/lib/supabase/server";
 import type { SalesItem } from "@/lib/sales";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await requireOwner();
+
   const supabase = await createClient();
 
   // One trailing year of data covers every dashboard period (day → year).

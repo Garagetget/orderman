@@ -12,17 +12,25 @@ import {
 } from "lucide-react";
 
 import { signOut } from "@/app/auth/actions";
+import type { Role } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/order", label: "จดออเดอร์", icon: ClipboardList },
-  { href: "/order-history", label: "ประวัติ", icon: History },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/menu", label: "จัดการเมนู", icon: UtensilsCrossed },
+  { href: "/order", label: "จดออเดอร์", icon: ClipboardList, ownerOnly: false },
+  { href: "/order-history", label: "ประวัติ", icon: History, ownerOnly: false },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, ownerOnly: true },
+  { href: "/menu", label: "จัดการเมนู", icon: UtensilsCrossed, ownerOnly: true },
 ] as const;
 
-export function AppNav({ userEmail }: { userEmail: string }) {
+export function AppNav({
+  userEmail,
+  role,
+}: {
+  userEmail: string;
+  role: Role;
+}) {
   const pathname = usePathname();
+  const links = LINKS.filter((link) => role === "owner" || !link.ownerOnly);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface shadow-sm">
@@ -35,7 +43,7 @@ export function AppNav({ userEmail }: { userEmail: string }) {
         </Link>
 
         <nav className="flex items-center gap-1 sm:gap-2">
-          {LINKS.map(({ href, label, icon: Icon }) => {
+          {links.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
