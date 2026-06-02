@@ -21,7 +21,7 @@ _(none)_
 - [x] **T18** จัดการหมวดหมู่แบบ dynamic (เพิ่ม/ลบ/แก้ชื่อ) · P1 · M _(extends T13)_
 - [x] **T14** ยอดขายรายเมนูบน Dashboard · P2 · M
 - [x] **T15** พิมพ์ใบเสร็จ · P2 · S _(depends on T11)_
-- [ ] **T16** สิทธิ์ผู้ใช้ (Owner vs. Staff) · P2 · L
+- [x] **T16** สิทธิ์ผู้ใช้ (Owner vs. Staff) · P2 · L
 - [x] **T17** จดออเดอร์แบบ manual (รายการนอกเมนู) · P2 · M
 
 แนะนำลำดับการทำ: **T13 → T15 → T14 → T16**
@@ -65,14 +65,15 @@ _(none)_
 - **Notes:** `components/receipt-print.tsx` เป็น print-only block. ชื่อร้านใช้ brand `orderman` เป็น placeholder (ยังไม่มี shop profile — ตั้งค่าได้ทีหลัง).
 
 ### T16 — สิทธิ์ผู้ใช้ (Owner vs. Staff)
-- **Priority:** P2 · **Size:** L · **Status:** Todo · **Depends on:** —
+- **Priority:** P2 · **Size:** L · **Status:** Done (2026-06-02) · **Depends on:** —
+- **Design ที่เลือก (Get 2026-06-02):** **proxy gate** (ไม่แตะ RLS ระดับ DB). role เก็บใน `app_metadata` (ไม่ใช่ user_metadata — กัน user แก้เอง); missing → owner. staff เข้าได้ `/order` + `/order-history`, บล็อก `/dashboard` + `/menu`.
 - **Acceptance:**
-  - [ ] Supabase user metadata มี `role: owner | staff`
-  - [ ] staff login แล้วถูก redirect ไปหน้า order เท่านั้น (dashboard, menu management ถูก block)
-  - [ ] owner เข้าถึงทุกหน้าได้ตามปกติ
-  - [ ] RLS/proxy gate บล็อก staff จาก route ที่ไม่ได้รับอนุญาต (ไม่ใช่แค่ hide link)
-  - [ ] ไม่มี sign-up page — role กำหนดผ่าน Supabase dashboard เหมือนเดิม
-- **Notes / ต้องตัดสินใจก่อนเริ่ม:** RLS ปัจจุบันเปิดให้ `authenticated` ทำได้ทุกอย่าง (`using (true)`). ถ้าจะบล็อก staff ระดับ DB จริง ต้องเขียน policy อิง `auth.jwt() -> role` ใหม่ทุกตาราง (effort สูงกว่า L). ถ้าแค่ proxy gate (block route) ก็พอสำหรับ use case ร้านเดียว — เจ้าของเลือกระดับความเข้ม.
+  - [x] role เก็บใน Supabase `app_metadata` (`role: "staff"`; ไม่ตั้ง = owner)
+  - [x] staff โดน redirect กลับ `/order` เมื่อเข้า owner-only route
+  - [x] owner เข้าถึงทุกหน้าได้ตามปกติ
+  - [x] proxy gate บล็อกที่ edge (`proxy.ts`) **และ** server ของแต่ละหน้า (`requireOwner()`) — ไม่ใช่แค่ hide link; nav ก็ซ่อนลิงก์ owner-only ให้ staff ด้วย
+  - [x] ไม่มี sign-up page — role กำหนดผ่าน Supabase dashboard (วิธีตั้งอยู่ใน README)
+- **Notes:** เลือก proxy gate ตามที่ note ไว้ว่าพอสำหรับร้านเดียว. ถ้าอนาคตอยากเข้มระดับ DB ค่อยเพิ่ม policy อิง `auth.jwt()->role` เป็น backlog ใหม่. ไม่มี migration. helper: `lib/roles.ts`, guard: `lib/supabase/guards.ts`.
 
 ### T17 — จดออเดอร์แบบ manual (รายการนอกเมนู)
 - **Priority:** P2 · **Size:** M · **Status:** Done (2026-06-02) · **Depends on:** —
