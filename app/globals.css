@@ -171,3 +171,25 @@
     @apply font-sans;
   }
 }
+
+/* Receipt printing (T15): the receipt is hidden on screen; when the browser
+   prints, hide the whole app and reveal only the receipt block. */
+.receipt-print {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .receipt-print {
+    display: block;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible !important;
+  }
+}

@@ -20,7 +20,7 @@ _(none)_
 - [x] **T13** จัดการเมนู (Menu Management UI) · P1 · L
 - [x] **T18** จัดการหมวดหมู่แบบ dynamic (เพิ่ม/ลบ/แก้ชื่อ) · P1 · M _(extends T13)_
 - [x] **T14** ยอดขายรายเมนูบน Dashboard · P2 · M
-- [ ] **T15** พิมพ์ใบเสร็จ · P2 · S _(depends on T11)_
+- [x] **T15** พิมพ์ใบเสร็จ · P2 · S _(depends on T11)_
 - [ ] **T16** สิทธิ์ผู้ใช้ (Owner vs. Staff) · P2 · L
 - [x] **T17** จดออเดอร์แบบ manual (รายการนอกเมนู) · P2 · M
 
@@ -56,13 +56,13 @@ _(none)_
 - **Notes:** ขยาย aggregation ใน `lib/sales.ts` ไม่ใช่ query ใหม่ใน component. group by `menu_id` แล้วโชว์ชื่อปัจจุบันจาก `menus` (order_items snapshot ไม่มี `name` — กันเคสเมนูถูกเปลี่ยนชื่อภายหลัง).
 
 ### T15 — พิมพ์ใบเสร็จ (Browser Print)
-- **Priority:** P2 · **Size:** S · **Status:** Todo · **Depends on:** T11 (เสร็จแล้ว → unblocked)
+- **Priority:** P2 · **Size:** S · **Status:** Done (2026-06-02) · **Depends on:** T11 (เสร็จแล้ว → unblocked)
 - **Acceptance:**
-  - [ ] มีปุ่ม Print บน order detail (ใน order history)
-  - [ ] กดแล้วเปิด browser print dialog พร้อม layout ใบเสร็จที่อ่านได้ (ชื่อร้าน, รายการ, ราคา, รวม)
-  - [ ] print CSS ซ่อน nav bar และ UI อื่นที่ไม่เกี่ยวกับใบเสร็จ
-  - [ ] ไม่ต้องติดตั้ง package เพิ่ม — ใช้ `window.print()` + `@media print` CSS
-- **Notes:** quick win ขอบเขตเล็กชัด ทำได้ทันที.
+  - [x] มีปุ่ม Print บน order detail (ใน order history) — ปุ่ม "พิมพ์ใบเสร็จ" (ใช้ได้กับออเดอร์ที่ยกเลิกด้วย)
+  - [x] กดแล้วเปิด browser print dialog พร้อม layout ใบเสร็จที่อ่านได้ (ชื่อร้าน, รายการ, ราคา, รวม, หมายเหตุ)
+  - [x] print CSS ซ่อน nav bar และ UI อื่นที่ไม่เกี่ยวกับใบเสร็จ (`.receipt-print` + `@media print` ใน globals.css)
+  - [x] ไม่ต้องติดตั้ง package เพิ่ม — ใช้ `window.print()` + `@media print` CSS
+- **Notes:** `components/receipt-print.tsx` เป็น print-only block. ชื่อร้านใช้ brand `orderman` เป็น placeholder (ยังไม่มี shop profile — ตั้งค่าได้ทีหลัง).
 
 ### T16 — สิทธิ์ผู้ใช้ (Owner vs. Staff)
 - **Priority:** P2 · **Size:** L · **Status:** Todo · **Depends on:** —
