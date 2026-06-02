@@ -8,6 +8,7 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  UserCog,
   UtensilsCrossed,
 } from "lucide-react";
 
@@ -15,14 +16,15 @@ import { signOut } from "@/app/auth/actions";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { cn } from "@/lib/utils";
 
-// Each link declares the permission required to see it. The /admin link (user
-// management, T29) is listed now so it appears automatically once that page
-// exists — only users with user.manage will ever see it.
+// Each link declares the permission required to see it — only users holding that
+// permission ever see the link. "จัดการผู้ใช้" (/admin/users, T29) is gated by
+// user.manage so staff never see it.
 const LINKS = [
   { href: "/order", label: "จดออเดอร์", icon: ClipboardList, permission: PERMISSIONS.ORDER_CREATE },
   { href: "/order-history", label: "ประวัติ", icon: History, permission: PERMISSIONS.ORDER_HISTORY_VIEW },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: PERMISSIONS.DASHBOARD_VIEW },
   { href: "/menu", label: "จัดการเมนู", icon: UtensilsCrossed, permission: PERMISSIONS.MENU_MANAGE },
+  { href: "/admin/users", label: "จัดการผู้ใช้", icon: UserCog, permission: PERMISSIONS.USER_MANAGE },
 ] as const;
 
 export function AppNav({
