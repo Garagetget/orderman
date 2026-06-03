@@ -40,12 +40,14 @@ export async function hasPermission(perm: string): Promise<boolean> {
 
 /**
  * Server-side gate for RBAC-protected RSC pages. Redirects to /login when
- * signed out, or to /order (the lowest common landing page) when the user lacks
- * the permission. Defense-in-depth on top of the proxy edge gate so a server
- * render never leaks protected data even if the proxy is bypassed.
+ * signed out, or to /no-access when the user lacks the permission. Defense-in-
+ * depth on top of the proxy edge gate so a server render never leaks protected
+ * data even if the proxy is bypassed. (In normal flow the proxy already bounced
+ * the user — to /order if they have other pages, to /no-access otherwise — so
+ * this redirect is the bypass safety net; /no-access is always loop-free.)
  */
 export async function requirePermission(perm: string): Promise<void> {
   if (!(await getUser())) redirect("/login");
 
-  if (!(await hasPermission(perm))) redirect("/order");
+  if (!(await hasPermission(perm))) redirect("/no-access");
 }
