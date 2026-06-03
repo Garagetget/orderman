@@ -1,30 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Sans_Thai, Sarabun } from "next/font/google";
+import { Sarabun } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-// DESIGN.md: Sarabun is the primary UI font (Thai + Latin).
+// DESIGN.md: Sarabun is the primary UI font and covers Thai + Latin, so it's the
+// only family we load. Geist/Geist Mono/Noto Sans Thai were create-next-app
+// leftovers that only fattened the font payload (mono now falls back to the
+// system monospace stack in globals.css). (T38)
 // weights — caption 300, body 400, medium 500, heading 600.
 const sarabun = Sarabun({
   variable: "--font-sarabun",
   subsets: ["latin", "thai"],
   weight: ["300", "400", "500", "600"],
-});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const notoSansThai = Noto_Sans_Thai({
-  variable: "--font-noto-thai",
-  subsets: ["thai"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -40,7 +29,7 @@ export default function RootLayout({
   return (
     <html
       lang="th"
-      className={`${sarabun.variable} ${geistSans.variable} ${geistMono.variable} ${notoSansThai.variable} h-full antialiased`}
+      className={`${sarabun.variable} h-full antialiased`}
     >
       <body className="min-h-full">
         {children}
