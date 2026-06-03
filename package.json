@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "git config core.hooksPath .githooks",
     "db:link:dev": "npx supabase link --project-ref osqhsgolczlptfihfrry",
     "db:link:prod": "npx supabase link --project-ref jtjevgotgajdulkyikkj",
     "db:push": "npx supabase db push",
@@ -38,6 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }
