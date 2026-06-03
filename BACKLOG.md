@@ -15,6 +15,23 @@ _(none)_
 
 ---
 
+## Done — Phase 7 (Testing)
+
+### T33 — Unit tests สำหรับ pure logic (Vitest)
+- **Priority:** P1 · **Size:** S–M · **Status:** Done (2026-06-03) · **Depends on:** —
+- **ที่มา:** user ถามว่าทำ unit test ได้ไหม (2026-06-03). โปรเจกต์ยังไม่มี test runner. เลือกเทสต์เฉพาะ pure functions ที่คุ้ม (ไม่แตะ DB/network/React)
+- **Scope:** ลง Vitest (dev dep) + config + `npm run test` / `test:watch` + เขียนเทสต์ 3 ไฟล์
+- **Acceptance:**
+  - [x] ลง `vitest` (4.1.8) เป็น dev dependency + `vitest.config.ts` (node environment, ไม่ต้อง jsdom). ไม่ต้อง alias — เทสต์ import เป้าหมายแบบ relative path
+  - [x] เพิ่ม script `test` (`vitest run`) + `test:watch` (`vitest`) ใน package.json
+  - [x] `lib/sales.test.ts`: cover `getPeriodRange` (day/week/month/year + สัปดาห์คร่อมเดือน), `sumSales` (รวม UTC+7 day-boundary + inclusive ends), `summarize`, `summarizeByMenu` (group + rank desc + manual key + out-of-range), `buildChartSeries` (24 ชม. + end-exclusive, week 7, month 30/28/29 รวม ก.พ. leap, year 12 + label ไทย). ใช้ `NOW` คงที่ deterministic
+  - [x] `lib/rbac/permissions.test.ts`: `/order-history` → `ORDER_HISTORY_VIEW` (ก่อน `/order`), sub-path, no over-match (`/orderx`→null), ungated→null
+  - [x] `lib/format.test.ts`: `formatBaht()` — `฿`, คั่นหลักพัน, ทศนิยม, ศูนย์
+  - [x] `npm test` ผ่าน 24/24 + `npm run lint && npm run build` clean (test ไฟล์ไม่อยู่ใน route/bundle)
+- **Notes:** เทสต์เฉพาะ pure logic — server actions/RPC/RLS/guards/components ไม่ทำใน item นี้ (ต้อง integration/mock, ROI ต่ำสำหรับร้านเดียว). commit ต่อท้าย develop เดียวกับ T32 (อยู่ใน PR #11)
+
+---
+
 ## Done — Phase 6 (Performance)
 
 ### T32 — Performance: ลด roundtrip ต่อ page load + ตั้ง Vercel region
