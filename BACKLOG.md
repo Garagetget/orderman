@@ -15,6 +15,23 @@ _(none)_
 
 ---
 
+## Done — Phase 6 (Performance)
+
+### T32 — Performance: ลด roundtrip ต่อ page load + ตั้ง Vercel region
+- **Priority:** P0 · **Size:** S–M · **Status:** Done (2026-06-03) · **Depends on:** T28
+- **ที่มา:** feedback แรกจาก user (2026-06-03) — "ระบบช้ามาก". ไล่โค้ดแล้วเจอว่าเปิด 1 หน้า ยิงไป Supabase ~10 roundtrips หลายอัน serial: `getUser()` ถูกเรียก 5 ครั้ง/หน้า (proxy + layout + `getCurrentPermissions` + `requirePermission` + `hasPermission` — แต่ละครั้ง = network call ไป Auth server) + permission RPC 3 ครั้ง. และไม่มี `vercel.json` ตั้ง region → Vercel function default `iad1` (US East) คนละทวีปกับ Supabase Singapore (`ap-southeast-1`) → ทุก roundtrip ข้ามแปซิฟิก ~200ms
+- **Acceptance:**
+  - [x] `vercel.json` ตั้ง `regions: ["sin1"]` ให้ serverless function รันใกล้ DB (Singapore)
+  - [x] `getUser()` ในฝั่ง RSC/action dedupe ด้วย React `cache()` (`lib/supabase/server.ts`) — ใน 1 request scope เรียก Auth จริงครั้งเดียว (layout + page guard + permission guard แชร์)
+  - [x] permission resolution dedupe: `getCurrentPermissions()` cache()'d; `hasPermission()` = `(await getCurrentPermissions()).includes(perm)` (เลิกยิง `auth_has_permission` แยก + เลิก `getUser()` ซ้ำ) → RSC เหลือ 1 RPC
+  - [x] proxy (edge) คงไว้ตามเดิม (คนละ runtime, React cache ไม่ครอบ) — ยอมรับ 1 getUser + 1 RPC ที่ edge
+  - [x] menu/admin actions + `/admin/users` page ใช้ cached `getUser` (ตัด getUser ซ้ำต่อ action 1 ครั้ง)
+  - [x] ไม่เปลี่ยน security/authorization behavior — owner เข้าได้ทุกหน้า, staff ยังถูก gate เหมือนเดิม
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** แตะแค่ performance path — ไม่แตะ RLS/RPC/business logic. ผล: RSC render ต่อหน้า จาก ~5 getUser + 3 RPC เหลือ ~1 getUser + 1 RPC (บวก edge proxy 1+1). **ค้าง Get verify ตอน redeploy prod** ว่า region sin1 มีผล (ดู Vercel function region ใน deployment). cold start ของ Supabase free plan (pause หลัง idle ~7 วัน) เป็นคนละเรื่อง (P2, policy/ค่าใช้จ่าย — แจ้ง Get แยก ไม่อยู่ใน scope นี้)
+
+---
+
 ## To Do — Phase 4 (Security Hardening)
 
 ### T25 — ปิดช่องโหว่ owner-only ที่ระดับ server action + RLS

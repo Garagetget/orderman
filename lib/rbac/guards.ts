@@ -1,6 +1,8 @@
+import { cache } from "react";
+
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 
 // The RBAC helper RPCs (auth_has_permission / auth_user_permissions) were added
 // by the T26 migration but lib/database.types.ts has not been regenerated (no
@@ -11,38 +13,29 @@ import { createClient } from "@/lib/supabase/server";
 
 /**
  * All permission keys for the current user (empty when signed out or on error).
- * Used by the layout to decide which nav links to render. One DB roundtrip.
+ * Used by the layout to decide which nav links to render, and the single source
+ * for every permission check below. Wrapped in React `cache()` so layout + page
+ * guard + every hasPermission() call in one request resolve permissions with a
+ * single DB roundtrip (the full list), instead of one auth_has_permission RPC
+ * per check plus a redundant getUser each. (T32)
  */
-export async function getCurrentPermissions(): Promise<string[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+export const getCurrentPermissions = cache(async (): Promise<string[]> => {
+  if (!(await getUser())) return [];
 
+  const supabase = await createClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.rpc as any)("auth_user_permissions");
   if (error || !Array.isArray(data)) return [];
   return data as string[];
-}
+});
 
 /**
  * Boolean permission check for use inside server actions (does NOT redirect).
- * Returns false when signed out or on error.
+ * Returns false when signed out or on error. Reads from the request-cached
+ * permission list so repeated checks in one action cost no extra roundtrip.
  */
 export async function hasPermission(perm: string): Promise<boolean> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-
-  const { data, error } = await (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase.rpc as any
-  )("auth_has_permission", { p_permission: perm });
-  if (error) return false;
-  return data === true;
+  return (await getCurrentPermissions()).includes(perm);
 }
 
 /**
@@ -52,11 +45,7 @@ export async function hasPermission(perm: string): Promise<boolean> {
  * render never leaks protected data even if the proxy is bypassed.
  */
 export async function requirePermission(perm: string): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!(await getUser())) redirect("/login");
 
   if (!(await hasPermission(perm))) redirect("/order");
 }

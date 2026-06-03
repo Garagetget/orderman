@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/rbac/admin";
 import { hasPermission } from "@/lib/rbac/guards";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 
 export type UserActionResult = { ok: true } | { ok: false; error: string };
 
@@ -34,15 +34,11 @@ const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * Re-resolves the caller every action so we never trust the proxy alone.
- * Uses the normal (anon-key, RLS-bound) server client just to read the session
- * identity + permissions; the privileged writes go through the admin client.
+ * Reads the session identity (request-cached, shared with the hasPermission
+ * check) — the privileged writes go through the admin client.
  */
 async function getCaller() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  return getUser();
 }
 
 /** Counts how many users currently hold the privileged (owner) role. */

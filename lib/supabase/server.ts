@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { cookies } from "next/headers";
 
 import { createServerClient } from "@supabase/ssr";
@@ -28,3 +30,20 @@ export async function createClient() {
     },
   });
 }
+
+/**
+ * The authenticated user for the current request, or null. Wrapped in React
+ * `cache()` so the layout, page guard and permission guards share ONE call to
+ * Supabase Auth per request instead of each making its own network roundtrip
+ * (getUser() validates the token against the Auth server every time). The cache
+ * scope is a single RSC render / server-action invocation — exactly the window
+ * where these guards stack up. The proxy runs in a separate (edge) runtime and
+ * is not covered by this cache; it keeps its own getUser() call. (T32)
+ */
+export const getUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});

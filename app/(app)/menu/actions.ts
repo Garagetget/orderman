@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { MenuCategory } from "@/lib/database.types";
 import { hasPermission } from "@/lib/rbac/guards";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 
 export type MenuActionResult = { ok: true } | { ok: false; error: string };
 
@@ -43,10 +43,9 @@ function validate(input: MenuInput): string | null {
 }
 
 async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getUser() is request-cached (T32) so this shares one Auth roundtrip with the
+  // hasPermission() check below instead of validating the token twice.
+  const [supabase, user] = await Promise.all([createClient(), getUser()]);
   return { supabase, user };
 }
 

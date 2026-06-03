@@ -2,7 +2,7 @@ import { AdminUsersView } from "@/components/admin-users-view";
 import { createAdminClient } from "@/lib/rbac/admin";
 import { requirePermission } from "@/lib/rbac/guards";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +21,9 @@ export default async function AdminUsersPage() {
   await requirePermission(PERMISSIONS.USER_MANAGE);
 
   // The caller's id lets the client disable self-destructive controls (the
-  // server actions are the real guard; this is just UX).
-  const supabase = await createClient();
-  const {
-    data: { user: caller },
-  } = await supabase.auth.getUser();
+  // server actions are the real guard; this is just UX). Request-cached, so this
+  // reuses the getUser() already resolved by requirePermission above.
+  const caller = await getUser();
 
   // RBAC tables + the auth admin API aren't in the generated Database type yet
   // (schema.sql not regenerated — no Docker). Cast localized.
