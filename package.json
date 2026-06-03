@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "prepare": "git config core.hooksPath .githooks",
     "db:link:dev": "npx supabase link --project-ref osqhsgolczlptfihfrry",
     "db:link:prod": "npx supabase link --project-ref jtjevgotgajdulkyikkj",
     "db:push": "npx supabase db push",

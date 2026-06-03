@@ -1,0 +1,8 @@
+#!/bin/sh
+# Heavier pre-push gate: the production build must succeed before pushing.
+# Kept out of pre-commit because `next build` is slow — you commit often, push
+# less. Bypass with `git push --no-verify` if you must.
+set -e
+
+echo "pre-push ▶ npm run build"
+npm run build

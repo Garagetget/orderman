@@ -17,6 +17,16 @@ _(none)_
 
 ## Done — Phase 7 (Testing)
 
+### T34 — Pre-commit / pre-push git hooks (no extra deps)
+- **Priority:** P2 · **Size:** S · **Status:** Done (2026-06-03) · **Depends on:** T33
+- **ที่มา:** user อยากให้ "กันลืม" รัน checks ก่อน commit (2026-06-03)
+- **Acceptance:**
+  - [x] `.githooks/pre-commit`: รัน `npm run lint` + `npm test` — fail แล้ว block commit
+  - [x] `.githooks/pre-push`: รัน `npm run build` (แยกจาก commit เพราะ build ช้า)
+  - [x] activate แบบไม่ลง package: `prepare` script ตั้ง `git config core.hooksPath .githooks` ให้อัตโนมัติตอน `npm install`
+  - [x] hook ทำงานจริง (verify: commit นี้ผ่าน hook)
+- **Notes:** ไม่ใช้ husky/simple-git-hooks (ไม่เพิ่ม dependency). hook เป็น `#!/bin/sh` รันผ่าน Git Bash (มากับ Git for Windows). bypass ฉุกเฉิน: `git commit --no-verify` / `git push --no-verify`
+
 ### T33 — Unit tests สำหรับ pure logic (Vitest)
 - **Priority:** P1 · **Size:** S–M · **Status:** Done (2026-06-03) · **Depends on:** —
 - **ที่มา:** user ถามว่าทำ unit test ได้ไหม (2026-06-03). โปรเจกต์ยังไม่มี test runner. เลือกเทสต์เฉพาะ pure functions ที่คุ้ม (ไม่แตะ DB/network/React)
