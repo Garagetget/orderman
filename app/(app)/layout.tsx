@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AppNav } from "@/components/app-nav";
 import { getCurrentPermissions } from "@/lib/rbac/guards";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 
 // Belt-and-suspenders: the proxy already gates these routes, but verifying the
 // user here too means a server-render never leaks to a signed-out client.
@@ -11,10 +11,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) {
     redirect("/login");
