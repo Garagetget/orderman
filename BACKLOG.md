@@ -5,13 +5,83 @@ Restaurant order-taking + sales dashboard web app for a Thai restaurant.
 Tech stack: Next.js 16 (App Router, TypeScript strict) · Tailwind CSS v4 · shadcn/ui · Supabase (Auth + Postgres) · Recharts
 
 > Single source of truth. Task ID นิ่ง ห้าม renumber. อัปเดต status ที่ไฟล์นี้เท่านั้น
-> Last updated: 2026-06-02 (T30 done — docs + portability packaging: README RBAC usage + "RBAC module (portable)" section + `SUPABASE_SERVICE_ROLE_KEY` env (local+Vercel); CLAUDE.md project structure + RBAC security model; `app_metadata.role` marked deprecated (kept for rollback, not deleted); schema.sql regen deferred to Docker (stale note added in-file, file intact). **Phase 5 ครบ T26–T30.** docs-only, lint+build ผ่าน clean. pending Get: set service_role key + live-test /admin/users; merge main → push Phase 5 migrations to prod before redeploy; regen schema.sql when Docker up)
+> Last updated: 2026-06-03 (T35–T40 added from full code review — see Phase 8. T30 done — docs + portability packaging: README RBAC usage + "RBAC module (portable)" section + `SUPABASE_SERVICE_ROLE_KEY` env (local+Vercel); CLAUDE.md project structure + RBAC security model; `app_metadata.role` marked deprecated (kept for rollback, not deleted); schema.sql regen deferred to Docker (stale note added in-file, file intact). **Phase 5 ครบ T26–T30.** docs-only, lint+build ผ่าน clean. pending Get: set service_role key + live-test /admin/users; merge main → push Phase 5 migrations to prod before redeploy; regen schema.sql when Docker up)
 
 ---
 
 ## In Progress
 
 _(none)_
+
+---
+
+## Done — Phase 8 (Code Review Fixes)
+
+> ✅ Phase 8 เสร็จ (2026-06-03) — T35–T40 ครบ. ที่มา: full code review ทั้งโปรเจค (2026-06-03,
+> ไม่เจอ Critical — auth/RLS/secret/RBAC แน่น). รายการคือ 🟡 Important + 🔵 Suggestions ที่ actionable.
+> `npm run lint` + `npm test` (26/26) + `npm run build` ผ่าน clean. ทำลำดับ T35 → T36+T40 → T37 → T38 → T39.
+
+### T35 — กัน redirect loop เมื่อ user ไม่มี permission เลย
+- **Priority:** P1 · **Size:** S · **Status:** Done (2026-06-03) · **Depends on:** T28
+- **ที่มา:** review 🟡 #1 — proxy + `requirePermission` เด้ง user ที่ไม่มีสิทธิ์ไป `/order` แต่ `/order` เองต้องการ `order.create`. user ที่ authenticated แต่ไม่มี `user_roles` row เลย (เช่น owner สร้าง user ตรงใน Supabase Auth dashboard ไม่ผ่าน `/admin/users`) → `/order` เด้งไป `/order` วนไม่จบ = `ERR_TOO_MANY_REDIRECTS`, ออกจากระบบทาง UI ไม่ได้ด้วย
+- **Acceptance:**
+  - [x] มีหน้า `/no-access` (`app/(app)/no-access/page.tsx`) — ไม่อยู่ใน `ROUTE_PERMISSIONS` จึงเข้าถึงได้แม้ไม่มี permission, แสดงข้อความ + ปุ่มออกจากระบบ (`signOut`) ที่ทำงานจริง
+  - [x] `lib/supabase/proxy.ts`: เมื่อ path ที่ถูกปฏิเสธคือ `/order` เอง → redirect ไป `/no-access` (path อื่นยังเด้ง `/order` ตามเดิมเพื่อ UX), กัน loop /order→/order
+  - [x] `lib/rbac/guards.ts#requirePermission`: เด้งไป `/no-access` เมื่อขาด permission (เป็น safety net ตอน proxy ถูก bypass — loop-free เสมอ)
+  - [x] verify (code trace): user ไม่มี user_roles row → proxy เด้ง /order→/no-access, signOut ใช้ได้ ไม่เกิด loop. build แสดง route `ƒ /no-access`
+  - [x] owner/staff ที่มี permission ปกติยังเข้าหน้าได้ตามเดิม (logic เดิมไม่แตะนอกจากปลายทาง redirect)
+  - [x] `npm run lint && npm run build` + `npm test` ผ่าน clean
+- **Notes:** `/no-access` อยู่ใน `(app)` group จึงได้ AppNav + layout (auth check ปกติ); ไม่อยู่ใน `PUBLIC_PATHS` → signed-out ยังถูกเด้ง `/login`. signOut server action เดิมใช้ได้ ไม่ต้องเขียนใหม่
+
+### T36 — เพิ่ม permission check ใน order / order-history server actions
+- **Priority:** P1 · **Size:** S · **Status:** Done (2026-06-03) · **Depends on:** T28
+- **ที่มา:** review 🟡 #2 — `createOrder` / `cancelOrder` / `updateOrderItems` เช็คแค่ login ไม่เช็ค permission ต่างจาก menu/admin actions ที่เช็ค `hasPermission()` ครบ. Server Action = public endpoint ยิงตรงได้ ป้องกันจริงตอนนี้เหลือแค่ RLS `orders` ที่เปิดให้ทุก authenticated. วันนี้ยังไม่ leak (owner+staff มี perm ทั้งคู่) แต่เป็น authorization bypass ทันทีที่เพิ่ม role ที่ไม่ควรแก้ออเดอร์
+- **Acceptance:**
+  - [x] `createOrder` คืน `{ ok:false, error:"ไม่มีสิทธิ์" }` เมื่อผู้เรียกไม่มี `order.create`
+  - [x] `cancelOrder` + `updateOrderItems` คืน `{ ok:false, error:"ไม่มีสิทธิ์" }` เมื่อผู้เรียกไม่มี `order.history.view`
+  - [x] owner + staff ยังจดออเดอร์ / แก้ / ยกเลิกได้ตามปกติ (ทั้งคู่มี perm — ใช้ `hasPermission` ตัวเดียวกับ menu actions)
+  - [~] (พิจารณา) RLS `orders`/`order_items` gate ด้วย `auth_has_permission` — **decided-skip ใน branch นี้**: เลี่ยง DB push บน develop; app-layer check + RLS `authenticated` เดิมพอสำหรับ defense-in-depth parity. เปิดเป็น migration แยกได้ภายหลังถ้าจะทำให้เท่า menu/categories
+  - [x] `npm run lint && npm run build` + `npm test` ผ่าน clean
+- **Notes:** ใช้ cached `getUser` + `hasPermission` ที่มีอยู่แล้ว (แชร์ roundtrip ตาม T32). order/order-history actions ใช้ `supabase.auth.getUser()` เดิมอยู่ + เพิ่ม hasPermission (1 RPC). staff ไม่ถูกบล็อก (มี perm ทั้งสอง)
+
+### T37 — Pagination / limit หน้า /order-history (date-range filter)
+- **Priority:** P1 · **Size:** M · **Status:** Done (2026-06-03) · **Depends on:** —
+- **ที่มา:** review 🟡 #3 — `order-history/page.tsx` ดึง `select("*, order_items(...)")` ทุกออเดอร์ ไม่มี `.limit()`. ร้านสะสมออเดอร์ทุกวัน ผ่านไปเป็นเดือน/ปี หน้านี้จะโหลดทุกออเดอร์ + ทุก item ลง client ครั้งเดียว → ช้าลงเรื่อยๆ เป็นปัญหาที่โตตามเวลา
+- **Acceptance:**
+  - [x] หน้า `/order-history` จำกัดข้อมูล: default = ช่วง 7 วัน + `.limit(200)` hard cap (ไม่ดึงทั้งหมด)
+  - [x] วิธีดูเพิ่ม = filter chips `วันนี้ / 7 วัน / 30 วัน / ทั้งหมด` (server-rendered `<Link>` ผ่าน `?range=`) — แตะง่ายบน iPad, active state ชัด
+  - [x] ออเดอร์ใหม่ยังขึ้นบนสุด (`created_at` desc คงเดิม); แก้/ยกเลิก/พิมพ์ใบเสร็จไม่แตะ (OrderHistoryView เดิม prop-driven — revalidatePath ยัง refresh ถูก)
+  - [x] empty state ยังแสดงถูก (OrderHistoryView render empty เมื่อ orders ว่าง — รวมเคสไม่มีออเดอร์ในช่วงที่เลือก)
+  - [x] `npm run lint && npm run build` + `npm test` ผ่าน clean
+- **Notes:** เลือก date-range filter แทน "โหลดเพิ่ม"/offset — server-render ล้วน ไม่ต้องยก orders เข้า client state (เลี่ยง bug state-sync หลัง revalidate). boundary คำนวณแบบ Bangkok UTC+7 (mirror `lib/sales` ไม่แตะไฟล์นั้น) `searchParams` เป็น Promise (Next 16) → `await`
+
+### T38 — ตัด font ที่ไม่ใช้ออก (เหลือ Sarabun)
+- **Priority:** P2 · **Size:** S · **Status:** Done (2026-06-03) · **Depends on:** —
+- **ที่มา:** review 🟡 #4 — `app/layout.tsx` โหลด 4 font family (Sarabun + Noto Sans Thai + Geist + Geist Mono) แต่ Sarabun ครอบ Thai+Latin อยู่แล้ว (DESIGN.md = font หลัก). Noto/Geist เป็น fallback ที่แทบไม่ถูกใช้ เป็น leftover จาก create-next-app ฉุด LCP/network บน iPad
+- **Acceptance:**
+  - [x] เหลือโหลดเฉพาะ Sarabun; ลบ Geist/Geist_Mono/Noto_Sans_Thai. ตรวจ `font-mono` ถูกใช้จริง (order id ใน order-history-view) → ชี้ `--font-mono` ไปที่ system monospace stack แทน Geist Mono (ไม่ต้องโหลด webfont)
+  - [x] เพิ่ม `display: "swap"` ให้ Sarabun
+  - [x] `globals.css` `--font-sans` เหลือ `var(--font-sarabun), ui-sans-serif, system-ui, sans-serif`; build ผ่าน — ฟอนต์ไทย/tabular-nums แสดงผ่าน Sarabun เดิม
+  - [x] `npm run lint && npm run build` ผ่าน clean
+- **Notes:** presentation-only. mono ใช้ system stack (`ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`) — เลขออเดอร์ยังเป็น monospace โดยไม่ต้องโหลด Geist Mono
+
+### T39 — ปัดเศษเงินตอนรวมยอดฝั่ง dashboard
+- **Priority:** P2 · **Size:** S · **Status:** Done (2026-06-03) · **Depends on:** —
+- **ที่มา:** review 🔵 #1 — `orders.total` คำนวณ/เก็บใน Postgres `numeric` (เป๊ะ) แต่ `sumSales`/`summarizeByMenu` ใน `lib/sales.ts` บวกใหม่ด้วย float JS. ถ้ามี manual price ทศนิยมหลายรายการอาจได้ `1234.5699999` (formatBaht ปัดตอนแสดงแล้ว impact ต่ำ แต่กันไว้ชัวร์)
+- **Acceptance:**
+  - [x] helper `round2()` (Math.round ×100/100) ปัด 2 ตำแหน่งใน `sumSales`, `summarizeByMenu` (per-row revenue), `buildChartSeries` (per-bucket total)
+  - [x] เพิ่ม unit test ใน `lib/sales.test.ts`: 0.1+0.2 → 0.3 ทั้ง `sumSales` และ `summarizeByMenu` (26/26 ผ่าน)
+  - [x] `npm test` + `npm run lint && npm run build` ผ่าน clean
+- **Notes:** แตะแค่ `lib/sales.ts` (pure logic) — คง UTC+7 bucketing + `status='completed'` invariant. `summarize` ได้ผลปัดอัตโนมัติเพราะเรียก `sumSales`
+
+### T40 — `cancelOrder` กรอง status ก่อน update
+- **Priority:** P2 · **Size:** S · **Status:** Done (2026-06-03) · **Depends on:** —
+- **ที่มา:** review 🔵 #2 — `cancelOrder` ทำ `update status='cancelled' where id=...` ไม่เช็ค status เดิม ยกเลิกซ้ำออเดอร์ที่ยกเลิกแล้วได้ (no-op ไม่อันตราย แต่ไม่ตรง invariant "cancelled = immutable" ที่ RPC `update_order_items` บังคับไว้)
+- **Acceptance:**
+  - [x] `cancelOrder` เพิ่ม `.neq("status", "cancelled")` — ยกเลิกออเดอร์ที่ยกเลิกแล้วไม่ทำซ้ำ
+  - [x] ยกเลิกออเดอร์ปกติยังทำงาน + revalidate dashboard/order-history เหมือนเดิม
+  - [x] `npm run lint && npm run build` + `npm test` ผ่าน clean
+- **Notes:** ไฟล์เดียว `app/(app)/order-history/actions.ts` — แก้ใน hunk เดียวกับ permission check ของ T36 จึง commit รวมกับ T36 (`fix(T36)` body ระบุ T40). 🔵 #3 (regen `database.types.ts`) ไม่ทำ item แยก — block ด้วย Docker, tracked ใน T26/T30
 
 ---
 

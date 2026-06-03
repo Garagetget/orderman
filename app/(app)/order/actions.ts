@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/lib/database.types";
+import { hasPermission } from "@/lib/rbac/guards";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export type MenuItemInput = {
@@ -72,6 +74,11 @@ export async function createOrder(
   } = await supabase.auth.getUser();
   if (!user) {
     return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+  }
+  // Authorization, not just authentication: a Server Action is a public endpoint
+  // callable straight from the bundle, so re-check the permission here too. (T36)
+  if (!(await hasPermission(PERMISSIONS.ORDER_CREATE))) {
+    return { ok: false, error: "ไม่มีสิทธิ์" };
   }
 
   const { data, error } = await supabase.rpc("create_order", {

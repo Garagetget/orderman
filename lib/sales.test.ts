@@ -79,6 +79,13 @@ describe("sumSales — UTC+7 day boundary", () => {
     ];
     expect(sumSales(orders, range)).toBe(7);
   });
+
+  it("rounds float drift to 2 decimals (satang)", () => {
+    const range = { startMs: 0, endMs: 10 };
+    // 0.1 + 0.2 = 0.30000000000000004 in IEEE-754 — must come back as 0.3.
+    const orders = [order(0.1, 1), order(0.2, 2)];
+    expect(sumSales(orders, range)).toBe(0.3);
+  });
 });
 
 describe("summarize", () => {
@@ -134,6 +141,16 @@ describe("summarizeByMenu", () => {
   it("keeps manual lines as their own group", () => {
     const rows = summarizeByMenu(items, range);
     expect(rows.find((r) => r.key === "manual:ขนม")?.name).toBe("ขนม");
+  });
+
+  it("rounds per-row revenue so float drift never reaches the table", () => {
+    const o = (day: number, hour: number) =>
+      new Date(bkk(2026, 5, day, hour)).toISOString();
+    const drifting: SalesItem[] = [
+      { created_at: o(15, 9), key: "m1", name: "x", quantity: 1, price: 0.1 },
+      { created_at: o(15, 10), key: "m1", name: "x", quantity: 1, price: 0.2 },
+    ];
+    expect(summarizeByMenu(drifting, range)[0].revenue).toBe(0.3);
   });
 });
 

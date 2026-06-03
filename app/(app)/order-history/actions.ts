@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/lib/database.types";
+import { hasPermission } from "@/lib/rbac/guards";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export type OrderActionResult =
@@ -28,11 +30,17 @@ export async function cancelOrder(orderId: string): Promise<OrderActionResult> {
   if (!user) {
     return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
   }
+  if (!(await hasPermission(PERMISSIONS.ORDER_HISTORY_VIEW))) {
+    return { ok: false, error: "ไม่มีสิทธิ์" };
+  }
 
+  // Already-cancelled orders are immutable (the update_order_items RPC enforces
+  // this too) — skip re-cancelling so the guarantee holds at every entry point. (T40)
   const { error } = await supabase
     .from("orders")
     .update({ status: "cancelled" })
-    .eq("id", orderId);
+    .eq("id", orderId)
+    .neq("status", "cancelled");
 
   if (error) {
     console.error("cancelOrder error:", error);
@@ -77,6 +85,9 @@ export async function updateOrderItems(
   } = await supabase.auth.getUser();
   if (!user) {
     return { ok: false, error: "กรุณาเข้าสู่ระบบใหม่" };
+  }
+  if (!(await hasPermission(PERMISSIONS.ORDER_HISTORY_VIEW))) {
+    return { ok: false, error: "ไม่มีสิทธิ์" };
   }
 
   const { error } = await supabase.rpc("update_order_items", {

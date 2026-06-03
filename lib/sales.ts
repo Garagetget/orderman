@@ -25,6 +25,13 @@ export const PERIODS: { value: Period; label: string }[] = [
 
 const BKK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
+/** Round to 2 decimals (satang). DB totals are exact `numeric`, but re-summing
+ *  them as JS floats can drift (0.1 + 0.2 = 0.30000000000000004); round so the
+ *  dashboard never shows a long-tail figure. (T39) */
+function round2(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
 const THAI_WEEKDAYS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 const THAI_MONTHS = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -75,10 +82,11 @@ export function getPeriodRange(period: Period, nowMs: number): Range {
 
 /** Sums order totals whose created_at falls within the range. */
 export function sumSales(orders: SalesOrder[], range: Range): number {
-  return orders.reduce((sum, order) => {
+  const sum = orders.reduce((acc, order) => {
     const t = Date.parse(order.created_at);
-    return t >= range.startMs && t <= range.endMs ? sum + order.total : sum;
+    return t >= range.startMs && t <= range.endMs ? acc + order.total : acc;
   }, 0);
+  return round2(sum);
 }
 
 /** The four headline totals shown on the dashboard cards. */
@@ -138,7 +146,9 @@ export function summarizeByMenu(
       });
     }
   }
-  return [...byMenu.values()].sort((a, b) => b.revenue - a.revenue);
+  return [...byMenu.values()]
+    .map((row) => ({ ...row, revenue: round2(row.revenue) }))
+    .sort((a, b) => b.revenue - a.revenue);
 }
 
 type Bucket = { label: string; startMs: number; endMs: number };
@@ -204,7 +214,7 @@ export function buildChartSeries(
       series[idx].total += order.total;
     }
   }
-  return series;
+  return series.map((point) => ({ ...point, total: round2(point.total) }));
 }
 
 export function chartTitle(period: Period): string {

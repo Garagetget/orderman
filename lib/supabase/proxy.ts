@@ -69,7 +69,10 @@ export async function updateSession(request: NextRequest) {
       )("auth_has_permission", { p_permission: requiredPermission });
       if (allowed !== true) {
         const redirectUrl = request.nextUrl.clone();
-        redirectUrl.pathname = "/order";
+        // Bounce to /order normally, but if it's /order itself the user can't
+        // reach (no order.create), send them to /no-access — otherwise /order
+        // would redirect to /order forever. (T35)
+        redirectUrl.pathname = pathname === "/order" ? "/no-access" : "/order";
         return NextResponse.redirect(redirectUrl);
       }
     }
